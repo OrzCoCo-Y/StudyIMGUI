@@ -72,7 +72,7 @@ void ImGuiManager::ShowSunshineWindow(int* sunshine, int& tempSunshine) {
 
     // 标题样式
     ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
-    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "🌞 阳光修改器");
+    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "阳光修改器");
     ImGui::PopFont();
     ImGui::Separator();
 
@@ -86,7 +86,7 @@ void ImGuiManager::ShowSunshineWindow(int* sunshine, int& tempSunshine) {
     // 阳光值输入
     ImGui::Text("设置阳光值:");
     ImGui::PushItemWidth(-1);
-    ImGui::InputInt("", &tempSunshine, 10, 100);
+    ImGui::InputInt("##sunshine", &tempSunshine, 10, 100);
     ImGui::PopItemWidth();
     
     ImGui::Spacing();
@@ -105,9 +105,9 @@ void ImGuiManager::ShowSunshineWindow(int* sunshine, int& tempSunshine) {
     // 进程状态
     ImGui::Text("进程状态:");
     if (g_memoryManager.IsAttached()) {
-        ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "✅ 已连接到植物大战僵尸");
+        ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "已连接到植物大战僵尸");
     } else {
-        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "❌ 未连接到植物大战僵尸");
+        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "未连接到植物大战僵尸");
         if (ImGui::Button("重新连接")) {
             g_memoryManager.AttachProcess(L"PlantsVsZombies.exe");
         }

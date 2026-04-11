@@ -71,6 +71,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         // 开始新的 ImGui 帧
         g_imguiManager.NewFrame();
 
+
         // 从游戏中读取阳光值到 sunshine 变量
         if (g_memoryManager.IsAttached()) {
             g_memoryManager.ReadSunshine(sunshine);
@@ -79,13 +80,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
         // 修改这里：将临时变量 tempSunshine 也传递进去
         g_imguiManager.ShowSunshineWindow(&sunshine, tempSunshine);
 
-        // 将 sunshine 变量的值写回游戏
-        // 现在，只有当 Apply 按钮被点击后，写入游戏的值才会改变
-        if (g_memoryManager.IsAttached()) {
-            g_memoryManager.WriteSunshine(sunshine);
-        }
-
-        // 状态信息已合并到阳光修改器窗口中
 
         // Rendering
         g_imguiManager.Render();

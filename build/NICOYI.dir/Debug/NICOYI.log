@@ -1,2 +1,14 @@
-﻿  main.cpp
+﻿  MemoryManager.cpp
+F:\NicoYI\ZWDZJS_0411\MemoryManager.cpp(1,1): warning C4828: 文件包含在偏移 0x721 处开始的字符，该字符在当前源字符集中无效(代码页 65001)。
+F:\NicoYI\ZWDZJS_0411\MemoryManager.cpp(1,1): warning C4828: 文件包含在偏移 0x722 处开始的字符，该字符在当前源字符集中无效(代码页 65001)。
+F:\NicoYI\ZWDZJS_0411\MemoryManager.cpp(1,1): warning C4828: 文件包含在偏移 0x723 处开始的字符，该字符在当前源字符集中无效(代码页 65001)。
+F:\NicoYI\ZWDZJS_0411\MemoryManager.cpp(1,1): warning C4828: 文件包含在偏移 0x724 处开始的字符，该字符在当前源字符集中无效(代码页 65001)。
+F:\NicoYI\ZWDZJS_0411\MemoryManager.cpp(1,1): warning C4828: 文件包含在偏移 0x731 处开始的字符，该字符在当前源字符集中无效(代码页 65001)。
+F:\NicoYI\ZWDZJS_0411\MemoryManager.cpp(1,1): warning C4828: 文件包含在偏移 0x732 处开始的字符，该字符在当前源字符集中无效(代码页 65001)。
+F:\NicoYI\ZWDZJS_0411\MemoryManager.cpp(1,1): warning C4828: 文件包含在偏移 0x733 处开始的字符，该字符在当前源字符集中无效(代码页 65001)。
+F:\NicoYI\ZWDZJS_0411\MemoryManager.cpp(1,1): warning C4828: 文件包含在偏移 0x734 处开始的字符，该字符在当前源字符集中无效(代码页 65001)。
+F:\NicoYI\ZWDZJS_0411\MemoryManager.cpp(1,1): warning C4828: 文件包含在偏移 0x735 处开始的字符，该字符在当前源字符集中无效(代码页 65001)。
+F:\NicoYI\ZWDZJS_0411\MemoryManager.cpp(1,1): warning C4828: 文件包含在偏移 0x737 处开始的字符，该字符在当前源字符集中无效(代码页 65001)。
+F:\NicoYI\ZWDZJS_0411\MemoryManager.cpp(134,37): warning C4312: “类型强制转换”: 从“DWORD”转换到更大的“LPCVOID”
+F:\NicoYI\ZWDZJS_0411\MemoryManager.cpp(139,38): warning C4312: “类型强制转换”: 从“DWORD”转换到更大的“LPVOID”
   NICOYI.vcxproj -> F:\NicoYI\ZWDZJS_0411\build\Debug\NICOYI.exe

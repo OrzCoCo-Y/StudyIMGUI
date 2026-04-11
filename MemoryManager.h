@@ -18,6 +18,7 @@ public:
     bool ReadSunshine(int& sunshine);
     bool WriteSunshine(int sunshine);
     bool IsAttached() const;
+    bool WriteCDSlot(int slot, bool enabled);
 
 private:
     DWORD GetProcessIdByName(const std::wstring& processName);

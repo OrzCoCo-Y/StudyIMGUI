@@ -96,9 +96,32 @@ void ImGuiManager::ShowSunshineWindow(int* sunshine, int& tempSunshine) {
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.8f, 0.3f, 1.0f));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.6f, 0.1f, 1.0f));
     if (ImGui::Button("应用修改", ImVec2(-1, 40))) {
-        *sunshine = tempSunshine;
+        g_memoryManager.WriteSunshine(tempSunshine);
     }
     ImGui::PopStyleColor(3);
+
+    ImGui::Separator();
+
+    // CD格功能开关
+    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "CD格功能开关");
+    static bool cdSlot1Enabled = false;
+    static bool cdSlot2Enabled = false;
+    static bool cdSlot3Enabled = false;
+
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.25f, 0.25f, 0.25f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.2f, 0.8f, 0.2f, 1.0f));
+    
+    if (ImGui::Checkbox ("1格CD (无CD)", &cdSlot1Enabled)) {
+        g_memoryManager.WriteCDSlot(1, cdSlot1Enabled);
+    }
+    if (ImGui::Checkbox("2格CD (无CD)", &cdSlot2Enabled)) {
+        g_memoryManager.WriteCDSlot(2, cdSlot2Enabled);
+    }
+    if (ImGui::Checkbox("3格CD (无CD)", &cdSlot3Enabled)) {
+        g_memoryManager.WriteCDSlot(3, cdSlot3Enabled);
+    }
+    
+    ImGui::PopStyleColor(2);
 
     ImGui::Separator();
 

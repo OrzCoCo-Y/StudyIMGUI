@@ -58,16 +58,21 @@ bool ImGuiManager::ProcessMessage(MSG* msg) {
     return false;
 }
 
-void ImGuiManager::ShowSunshineWindow(int* sunshine) {
+void ImGuiManager::ShowSunshineWindow(int* sunshine, int& tempSunshine) {
     ImGui::Begin("Sunshine Modifier中文");
-    
+
+    // 显示当前游戏中的真实阳光值
     ImGui::Text("Current Sunshine: %d", *sunshine);
-    ImGui::InputInt("Sunshine", sunshine);
-    
+
+    // 输入框绑定到临时变量 tempSunshine
+    // 用户的操作只会改变 tempSunshine，不会立即影响 *sunshine
+    ImGui::InputInt("Sunshine", &tempSunshine);
+
+    // 当 Apply 按钮被点击时，将临时变量的值赋给真正的阳光值
     if (ImGui::Button("Apply")) {
-        // Sunshine value will be modified directly through the pointer
+        *sunshine = tempSunshine;
     }
-    
+
     ImGui::End();
 }
 

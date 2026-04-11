@@ -48,6 +48,9 @@ int main(int, char**)
     // Our state
     int sunshine = 0;
     bool showDemoWindow = false;
+    // 在 main 函数的 while 循环外部，声明临时变量
+
+    int tempSunshine = 0;
 
     // Main loop
     bool done = false;
@@ -65,18 +68,19 @@ int main(int, char**)
         if (done)
             break;
 
-        // Start the Dear ImGui frame
+        // 开始新的 ImGui 帧
         g_imguiManager.NewFrame();
 
-        // Read sunshine value from game
+        // 从游戏中读取阳光值到 sunshine 变量
         if (g_memoryManager.IsAttached()) {
             g_memoryManager.ReadSunshine(sunshine);
         }
 
-        // Show sunshine modification window
-        g_imguiManager.ShowSunshineWindow(&sunshine);
+        // 修改这里：将临时变量 tempSunshine 也传递进去
+        g_imguiManager.ShowSunshineWindow(&sunshine, tempSunshine);
 
-        // Write sunshine value back to game when changed
+        // 将 sunshine 变量的值写回游戏
+        // 现在，只有当 Apply 按钮被点击后，写入游戏的值才会改变
         if (g_memoryManager.IsAttached()) {
             g_memoryManager.WriteSunshine(sunshine);
         }

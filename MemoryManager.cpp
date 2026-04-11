@@ -93,7 +93,7 @@ bool MemoryManager::WriteCDSlot(int slot, bool enabled) {
 	}
 
 	DWORD cdAddress = thirdAddress + slotOffset;
-	// ·µ»ØcdAddress Ê®Áù½øÖÆÏÔÊ¾
+	// ï¿½ï¿½ï¿½ï¿½cdAddress Ê®ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾
 	cout << "Base Address: 0x" << hex << baseAddress << dec << endl;
 	cout << "First Address: 0x" << hex << firstAddress << dec << endl;
 	cout << "Second Address: 0x" << hex << secondAddress << dec << endl;
@@ -131,13 +131,13 @@ DWORD MemoryManager::GetProcessIdByName(const std::wstring& processName) {
 }
 
 bool MemoryManager::ReadMemory(DWORD address, void* buffer, SIZE_T size) {
-	SIZE_T bytesRead;
-	return ReadProcessMemory(hProcess, (LPCVOID)address, buffer, size, &bytesRead) && (bytesRead == size);
+    SIZE_T bytesRead;
+    return ReadProcessMemory(hProcess, reinterpret_cast<LPCVOID>(address), buffer, size, &bytesRead) && (bytesRead == size);
 }
 
 bool MemoryManager::WriteMemory(DWORD address, const void* buffer, SIZE_T size) {
-	SIZE_T bytesWritten;
-	return WriteProcessMemory(hProcess, (LPVOID)address, buffer, size, &bytesWritten) && (bytesWritten == size);
+    SIZE_T bytesWritten;
+    return WriteProcessMemory(hProcess, reinterpret_cast<LPVOID>(address), buffer, size, &bytesWritten) && (bytesWritten == size);
 }
 
 DWORD MemoryManager::GetSunshineAddress() {

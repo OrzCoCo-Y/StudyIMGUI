@@ -66,9 +66,10 @@ bool ImGuiManager::ProcessMessage(MSG* msg) {
 void ImGuiManager::AddLog(const std::string& message) {
     // 添加时间戳
     time_t now = time(0);
-    struct tm* localTime = localtime(&now);
+    struct tm localTime;
+    localtime_s(&localTime, &now);
     char timeStr[20];
-    strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", localTime);
+    strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", &localTime);
     
     std::string logEntry = std::string("[") + timeStr + "] " + message;
     logMessages.push_back(logEntry);
@@ -96,8 +97,9 @@ void ImGuiManager::ShowLogWindow() {
     ImGui::SameLine();
     if (ImGui::Button("保存日志")) {
         // 简单的日志保存功能
-        FILE* file = fopen("log.txt", "w");
-        if (file) {
+        FILE* file;
+        errno_t err = fopen_s(&file, "log.txt", "w");
+        if (err == 0 && file) {
             for (size_t i = 0; i < logMessages.size(); i++) {
                 fprintf(file, "%s\n", logMessages[i].c_str());
             }
@@ -188,19 +190,29 @@ void ImGuiManager::ShowSunshineWindow(int* sunshine, int& tempSunshine) {
     ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.2f, 0.8f, 0.2f, 1.0f));
     
     if (ImGui::Checkbox("1格CD (无CD)", &cdSlot1Enabled)) {
-        g_memoryManager.WriteCDSlot(1, cdSlot1Enabled);
         AddLog(std::string("1格CD 已") + (cdSlot1Enabled ? "启用" : "禁用"));
     }
     if (ImGui::Checkbox("2格CD (无CD)", &cdSlot2Enabled)) {
-        g_memoryManager.WriteCDSlot(2, cdSlot2Enabled);
         AddLog(std::string("2格CD 已") + (cdSlot2Enabled ? "启用" : "禁用"));
     }
     if (ImGui::Checkbox("3格CD (无CD)", &cdSlot3Enabled)) {
-        g_memoryManager.WriteCDSlot(3, cdSlot3Enabled);
         AddLog(std::string("3格CD 已") + (cdSlot3Enabled ? "启用" : "禁用"));
     }
     
     ImGui::PopStyleColor(2);
+    
+    // 持续应用CD格状态（类似CE的锁定功能）
+    if (g_memoryManager.IsAttached()) {
+        if (cdSlot1Enabled) {
+            g_memoryManager.WriteCDSlot(1, true);
+        }
+        if (cdSlot2Enabled) {
+            g_memoryManager.WriteCDSlot(2, true);
+        }
+        if (cdSlot3Enabled) {
+            g_memoryManager.WriteCDSlot(3, true);
+        }
+    }
 
     ImGui::Separator();
 

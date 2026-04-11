@@ -85,17 +85,7 @@ int main(int, char**)
             g_memoryManager.WriteSunshine(sunshine);
         }
 
-        // Show process status
-        ImGui::Begin("状态");
-        if (g_memoryManager.IsAttached()) {
-            ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected to Plants vs Zombies");
-        } else {
-            ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "Not connected to Plants vs Zombies");
-            if (ImGui::Button("Reconnect")) {
-                g_memoryManager.AttachProcess(L"PlantsVsZombies.exe");
-            }
-        }
-        ImGui::End();
+        // 状态信息已合并到阳光修改器窗口中
 
         // Rendering
         g_imguiManager.Render();

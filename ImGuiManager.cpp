@@ -1,4 +1,8 @@
 #include "ImGuiManager.h"
+#include "MemoryManager.h"
+
+// 全局实例声明
+extern MemoryManager g_memoryManager;
 
 // Forward declare message handler from imgui_impl_win32.cpp
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
@@ -59,18 +63,54 @@ bool ImGuiManager::ProcessMessage(MSG* msg) {
 }
 
 void ImGuiManager::ShowSunshineWindow(int* sunshine, int& tempSunshine) {
-    ImGui::Begin("Sunshine Modifier中文");
+    // 设置窗口大小和位置
+    ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(100, 100), ImGuiCond_FirstUseEver);
+    
+    // 创建美化的窗口
+    ImGui::Begin("植物大战僵尸阳光修改器", NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
 
-    // 显示当前游戏中的真实阳光值
-    ImGui::Text("Current Sunshine: %d", *sunshine);
+    // 标题样式
+    ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
+    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "🌞 阳光修改器");
+    ImGui::PopFont();
+    ImGui::Separator();
 
-    // 输入框绑定到临时变量 tempSunshine
-    // 用户的操作只会改变 tempSunshine，不会立即影响 *sunshine
-    ImGui::InputInt("Sunshine", &tempSunshine);
+    // 当前阳光值显示
+    ImGui::Text("当前阳光值:");
+    ImGui::SameLine();
+    ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "%d", *sunshine);
+    
+    ImGui::Spacing();
 
-    // 当 Apply 按钮被点击时，将临时变量的值赋给真正的阳光值
-    if (ImGui::Button("Apply")) {
+    // 阳光值输入
+    ImGui::Text("设置阳光值:");
+    ImGui::PushItemWidth(-1);
+    ImGui::InputInt("", &tempSunshine, 10, 100);
+    ImGui::PopItemWidth();
+    
+    ImGui::Spacing();
+
+    // 应用按钮
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.7f, 0.2f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.8f, 0.3f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.6f, 0.1f, 1.0f));
+    if (ImGui::Button("应用修改", ImVec2(-1, 40))) {
         *sunshine = tempSunshine;
+    }
+    ImGui::PopStyleColor(3);
+
+    ImGui::Separator();
+
+    // 进程状态
+    ImGui::Text("进程状态:");
+    if (g_memoryManager.IsAttached()) {
+        ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "✅ 已连接到植物大战僵尸");
+    } else {
+        ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "❌ 未连接到植物大战僵尸");
+        if (ImGui::Button("重新连接")) {
+            g_memoryManager.AttachProcess(L"PlantsVsZombies.exe");
+        }
     }
 
     ImGui::End();

@@ -20,7 +20,7 @@ int main(int, char**)
     HWND hwnd = ::CreateWindowEx(
         WS_EX_LAYERED,  // Extended styles for layered window (no WS_EX_TRANSPARENT to allow mouse events)
         wc.lpszClassName,
-        _T("植物大战僵尸阳光修改"),
+        _T("Plants vs Zombies Sunshine Modifier"),
         WS_POPUP,  // No border or title bar
         0, 0,  // Full screen
         GetSystemMetrics(SM_CXSCREEN),

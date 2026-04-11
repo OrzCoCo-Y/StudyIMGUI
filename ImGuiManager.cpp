@@ -1,5 +1,6 @@
 #include "ImGuiManager.h"
 #include "MemoryManager.h"
+#include <time.h>
 
 // 全局实例声明
 extern MemoryManager g_memoryManager;
@@ -62,9 +63,72 @@ bool ImGuiManager::ProcessMessage(MSG* msg) {
     return false;
 }
 
+void ImGuiManager::AddLog(const std::string& message) {
+    // 添加时间戳
+    time_t now = time(0);
+    struct tm* localTime = localtime(&now);
+    char timeStr[20];
+    strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", localTime);
+    
+    std::string logEntry = std::string("[") + timeStr + "] " + message;
+    logMessages.push_back(logEntry);
+    
+    // 限制日志数量，防止内存占用过大
+    if (logMessages.size() > 100) {
+        logMessages.erase(logMessages.begin());
+    }
+}
+
+void ImGuiManager::ShowLogWindow() {
+    if (!showLogWindow) return;
+    
+    ImGui::SetNextWindowSize(ImVec2(600, 400), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowPos(ImVec2(500, 100), ImGuiCond_FirstUseEver);
+    
+    ImGui::Begin("操作日志", &showLogWindow, ImGuiWindowFlags_NoCollapse);
+    
+    // 清空日志按钮
+    if (ImGui::Button("清空日志")) {
+        logMessages.clear();
+        AddLog("日志已清空");
+    }
+    
+    ImGui::SameLine();
+    if (ImGui::Button("保存日志")) {
+        // 简单的日志保存功能
+        FILE* file = fopen("log.txt", "w");
+        if (file) {
+            for (size_t i = 0; i < logMessages.size(); i++) {
+                fprintf(file, "%s\n", logMessages[i].c_str());
+            }
+            fclose(file);
+            AddLog("日志已保存到 log.txt");
+        } else {
+            AddLog("保存日志失败");
+        }
+    }
+    
+    ImGui::Separator();
+    
+    // 日志显示区域
+    ImGui::BeginChild("LogScroll", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), true);
+    for (size_t i = 0; i < logMessages.size(); i++) {
+        ImGui::TextUnformatted(logMessages[i].c_str());
+    }
+    
+    // 自动滚动到底部
+    if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) {
+        ImGui::SetScrollHereY(1.0f);
+    }
+    
+    ImGui::EndChild();
+    
+    ImGui::End();
+}
+
 void ImGuiManager::ShowSunshineWindow(int* sunshine, int& tempSunshine) {
     // 设置窗口大小和位置
-    ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(400, 350), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowPos(ImVec2(100, 100), ImGuiCond_FirstUseEver);
     
     // 创建美化的窗口
@@ -75,6 +139,17 @@ void ImGuiManager::ShowSunshineWindow(int* sunshine, int& tempSunshine) {
     ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "阳光修改器");
     ImGui::PopFont();
     ImGui::Separator();
+
+    // 日志窗口开关
+    if (ImGui::Checkbox("显示日志窗口", &showLogWindow)) {
+        if (showLogWindow) {
+            AddLog("日志窗口已打开");
+        } else {
+            AddLog("日志窗口已关闭");
+        }
+    }
+
+    ImGui::Spacing();
 
     // 当前阳光值显示
     ImGui::Text("当前阳光值:");
@@ -97,6 +172,7 @@ void ImGuiManager::ShowSunshineWindow(int* sunshine, int& tempSunshine) {
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.6f, 0.1f, 1.0f));
     if (ImGui::Button("应用修改", ImVec2(-1, 40))) {
         g_memoryManager.WriteSunshine(tempSunshine);
+        AddLog("阳光值已修改为: " + std::to_string(tempSunshine));
     }
     ImGui::PopStyleColor(3);
 
@@ -111,14 +187,17 @@ void ImGuiManager::ShowSunshineWindow(int* sunshine, int& tempSunshine) {
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.25f, 0.25f, 0.25f, 1.0f));
     ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.2f, 0.8f, 0.2f, 1.0f));
     
-    if (ImGui::Checkbox ("1格CD (无CD)", &cdSlot1Enabled)) {
+    if (ImGui::Checkbox("1格CD (无CD)", &cdSlot1Enabled)) {
         g_memoryManager.WriteCDSlot(1, cdSlot1Enabled);
+        AddLog(std::string("1格CD 已") + (cdSlot1Enabled ? "启用" : "禁用"));
     }
     if (ImGui::Checkbox("2格CD (无CD)", &cdSlot2Enabled)) {
         g_memoryManager.WriteCDSlot(2, cdSlot2Enabled);
+        AddLog(std::string("2格CD 已") + (cdSlot2Enabled ? "启用" : "禁用"));
     }
     if (ImGui::Checkbox("3格CD (无CD)", &cdSlot3Enabled)) {
         g_memoryManager.WriteCDSlot(3, cdSlot3Enabled);
+        AddLog(std::string("3格CD 已") + (cdSlot3Enabled ? "启用" : "禁用"));
     }
     
     ImGui::PopStyleColor(2);
@@ -132,11 +211,15 @@ void ImGuiManager::ShowSunshineWindow(int* sunshine, int& tempSunshine) {
     } else {
         ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "未连接到植物大战僵尸");
         if (ImGui::Button("重新连接")) {
-            g_memoryManager.AttachProcess(L"PlantsVsZombies.exe");
+            bool attached = g_memoryManager.AttachProcess(L"PlantsVsZombies.exe");
+            AddLog(attached ? "已连接到植物大战僵尸" : "连接失败");
         }
     }
 
     ImGui::End();
+
+    // 显示日志窗口
+    ShowLogWindow();
 }
 
 void ImGuiManager::HandleResize(WPARAM wParam, LPARAM lParam) {

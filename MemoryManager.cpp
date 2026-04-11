@@ -83,10 +83,10 @@ bool MemoryManager::WriteCDSlot(int slot, bool enabled) {
 		slotOffset = 0x70;
 		break;
 	case 2:
-		slotOffset = 0x70 + 50;
+		slotOffset = 0x70 + 0x50;
 		break;
 	case 3:
-		slotOffset = 0x70 + 50 + 50;
+		slotOffset = 0x70 + 0x50 + 0x50;
 		break;
 	default:
 		return false;

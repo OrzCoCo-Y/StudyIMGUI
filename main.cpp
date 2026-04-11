@@ -20,11 +20,23 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 // Main code
 int main(int, char**)
 {
-    // Create application window
+    // Create application window with no border and transparent background
     //ImGui_ImplWin32_EnableDpiAwareness();
     WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, _T("ImGui Example"), NULL };
     ::RegisterClassEx(&wc);
-    HWND hwnd = ::CreateWindowEx(0, wc.lpszClassName, _T("NICOYI"), WS_OVERLAPPEDWINDOW, 100, 100, 1280, 800, NULL, NULL, wc.hInstance, NULL);
+    // Create borderless window
+    HWND hwnd = ::CreateWindowEx(
+        WS_EX_LAYERED,  // Extended styles for layered window (no WS_EX_TRANSPARENT to allow mouse events)
+        wc.lpszClassName,
+        _T("NICOYI"),
+        WS_POPUP,  // No border or title bar
+        0, 0,  // Full screen
+        GetSystemMetrics(SM_CXSCREEN),
+        GetSystemMetrics(SM_CYSCREEN),
+        NULL, NULL, wc.hInstance, NULL
+    );
+    // Set window transparency
+    ::SetLayeredWindowAttributes(hwnd, RGB(0, 0, 0), 0, LWA_COLORKEY);
 
     // Initialize Direct3D
     if (!CreateDeviceD3D(hwnd))
@@ -132,7 +144,8 @@ int main(int, char**)
 
         // Rendering
         ImGui::Render();
-        const float clear_color_with_alpha[4] = { clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w };
+        // Clear with transparent color (black with alpha 0)
+        const float clear_color_with_alpha[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
         g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, NULL);
         g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, clear_color_with_alpha);
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
@@ -192,11 +205,17 @@ void CleanupDeviceD3D()
 {
     CleanupRenderTarget();
     if (g_pSwapChain)
-    { g_pSwapChain->Release(); g_pSwapChain = NULL; }
+    {
+        g_pSwapChain->Release(); g_pSwapChain = NULL;
+    }
     if (g_pd3dDeviceContext)
-    { g_pd3dDeviceContext->Release(); g_pd3dDeviceContext = NULL; }
+    {
+        g_pd3dDeviceContext->Release(); g_pd3dDeviceContext = NULL;
+    }
     if (g_pd3dDevice)
-    { g_pd3dDevice->Release(); g_pd3dDevice = NULL; }
+    {
+        g_pd3dDevice->Release(); g_pd3dDevice = NULL;
+    }
 }
 
 void CreateRenderTarget()
@@ -210,7 +229,9 @@ void CreateRenderTarget()
 void CleanupRenderTarget()
 {
     if (g_mainRenderTargetView)
-    { g_mainRenderTargetView->Release(); g_mainRenderTargetView = NULL; }
+    {
+        g_mainRenderTargetView->Release(); g_mainRenderTargetView = NULL;
+    }
 }
 
 // Forward declare message handler from imgui_impl_win32.cpp

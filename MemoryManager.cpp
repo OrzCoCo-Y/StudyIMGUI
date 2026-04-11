@@ -26,17 +26,57 @@ void MemoryManager::DetachProcess() {
 	processId = 0;
 }
 
+// ==================== 通用指针链读取方法实现 ====================
+
+DWORD MemoryManager::ResolvePointerChain(DWORD baseAddress, const std::vector<DWORD>& offsets) {
+	if (!IsAttached()) {
+		return 0;
+	}
+
+	if (baseAddress == 0) {
+		return 0;
+	}
+
+	DWORD currentAddress = baseAddress;
+	DWORD currentValue = 0;
+
+	// 读取基地址的值
+	if (!ReadMemory(currentAddress, &currentValue, sizeof(DWORD))) {
+		return 0;
+	}
+
+	// 遍历偏移链
+	for (size_t i = 0; i < offsets.size(); ++i) {
+		currentAddress = currentValue + offsets[i];
+		
+		// 如果是最后一个偏移，直接返回地址
+		if (i == offsets.size() - 1) {
+			return currentAddress;
+		}
+
+		// 否则继续读取下一级指针
+		if (!ReadMemory(currentAddress, &currentValue, sizeof(DWORD))) {
+			return 0;
+		}
+
+		// 检查空指针
+		if (currentValue == 0) {
+			return 0;
+		}
+	}
+
+	// 如果没有偏移，返回基地址读取的值
+	return currentValue;
+}
+
 bool MemoryManager::ReadSunshine(int& sunshine) {
 	if (!IsAttached()) {
 		return false;
 	}
 
-	DWORD address = GetSunshineAddress();
-	if (address == 0) {
-		return false;
-	}
-
-	return ReadMemory(address, &sunshine, sizeof(int));
+	// 使用新的指针链读取方法
+	// 阳光地址: [[006A9EC0] + 768] + 5560
+	return ReadPointerChainValue<int>(BASE_ADDRESS, {OFFSET_1, OFFSET_2}, sunshine);
 }
 
 bool MemoryManager::WriteSunshine(int sunshine) {
@@ -44,12 +84,8 @@ bool MemoryManager::WriteSunshine(int sunshine) {
 		return false;
 	}
 
-	DWORD address = GetSunshineAddress();
-	if (address == 0) {
-		return false;
-	}
-
-	return WriteMemory(address, &sunshine, sizeof(int));
+	// 使用新的指针链写入方法
+	return WritePointerChainValue<int>(BASE_ADDRESS, {OFFSET_1, OFFSET_2}, sunshine);
 }
 
 bool MemoryManager::WriteCDSlot(int slot, bool enabled) {
@@ -57,26 +93,7 @@ bool MemoryManager::WriteCDSlot(int slot, bool enabled) {
 		return false;
 	}
 
-	// Calculate CD slot address
-	DWORD baseAddress = BASE_ADDRESS;
-	DWORD firstAddress;
-	DWORD secondAddress;
-	DWORD thirdAddress;
-
-	if (!ReadMemory(baseAddress, &firstAddress, sizeof(DWORD))) {
-		return false;
-	}
-
-	firstAddress += OFFSET_1;  // 768
-	if (!ReadMemory(firstAddress, &secondAddress, sizeof(DWORD))) {
-		return false;
-	}
-
-	secondAddress += 0x144; // 144
-	if (!ReadMemory(secondAddress, &thirdAddress, sizeof(DWORD))) {
-		return false;
-	}
-	// Calculate offset based on slot number
+	// CD格地址: [[[006A9EC0] + 768] + 144] + slotOffset
 	DWORD slotOffset = 0;
 	switch (slot) {
 	case 1:
@@ -92,16 +109,57 @@ bool MemoryManager::WriteCDSlot(int slot, bool enabled) {
 		return false;
 	}
 
-	DWORD cdAddress = thirdAddress + slotOffset;
-	// ����cdAddress ʮ��������ʾ
-	cout << "Base Address: 0x" << hex << baseAddress << dec << endl;
-	cout << "First Address: 0x" << hex << firstAddress << dec << endl;
-	cout << "Second Address: 0x" << hex << secondAddress << dec << endl;
-	cout << "Third Address: 0x" << hex << thirdAddress << dec << endl;
-	cout << "Third Address: 0x" << hex << cdAddress << dec << endl;
-	//login("CD Slot %d Address: 0x%X\n", slot, cdAddress);
 	BYTE value = enabled ? 1 : 0;
-	return WriteMemory(cdAddress, &value, sizeof(BYTE));
+	return WritePointerChainValue<BYTE>(BASE_ADDRESS, {OFFSET_1, 0x144, slotOffset}, value);
+}
+
+bool MemoryManager::CollectSunshine() {
+	if (!IsAttached()) {
+		return false;
+	}
+
+	// 自动采集阳光地址: [[006A9EC0] + 768] + E4
+	DWORD targetAddress = ResolvePointerChain(BASE_ADDRESS, {OFFSET_1, 0xE4});
+	if (targetAddress == 0) {
+		return false;
+	}
+	
+	// Allocate memory in the target process for the parameter
+	LPVOID paramAddress = VirtualAllocEx(hProcess, NULL, sizeof(DWORD), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+	if (paramAddress == NULL) {
+		return false;
+	}
+
+	// Write the parameter value to the allocated memory
+	if (!WriteProcessMemory(hProcess, paramAddress, &targetAddress, sizeof(DWORD), NULL)) {
+		VirtualFreeEx(hProcess, paramAddress, 0, MEM_RELEASE);
+		return false;
+	}
+
+	// Create a remote thread to call the function at 0x004309D0
+	HANDLE hThread = CreateRemoteThread(
+		hProcess,
+		NULL,
+		0,
+		(LPTHREAD_START_ROUTINE)0x004309D0,
+		paramAddress,
+		0,
+		NULL
+	);
+
+	if (hThread == NULL) {
+		VirtualFreeEx(hProcess, paramAddress, 0, MEM_RELEASE);
+		return false;
+	}
+
+	// Wait for the thread to finish
+	WaitForSingleObject(hThread, INFINITE);
+	
+	// Clean up
+	CloseHandle(hThread);
+	VirtualFreeEx(hProcess, paramAddress, 0, MEM_RELEASE);
+	
+	return true;
 }
 
 bool MemoryManager::IsAttached() const {
@@ -141,19 +199,5 @@ bool MemoryManager::WriteMemory(DWORD address, const void* buffer, SIZE_T size) 
 }
 
 DWORD MemoryManager::GetSunshineAddress() {
-	DWORD baseAddress = BASE_ADDRESS;
-	DWORD firstAddress;
-	DWORD secondAddress;
-
-	if (!ReadMemory(baseAddress, &firstAddress, sizeof(DWORD))) {
-		return 0;
-	}
-
-	firstAddress += OFFSET_1;
-	if (!ReadMemory(firstAddress, &secondAddress, sizeof(DWORD))) {
-		return 0;
-	}
-
-	secondAddress += OFFSET_2;
-	return secondAddress;
+	return ResolvePointerChain(BASE_ADDRESS, {OFFSET_1, OFFSET_2});
 }

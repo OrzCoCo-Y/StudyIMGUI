@@ -191,6 +191,7 @@ void ImGuiManager::ShowSunshineWindow(int* sunshine, int& tempSunshine) {
     static bool cdSlot1Enabled = false;
     static bool cdSlot2Enabled = false;
     static bool cdSlot3Enabled = false;
+    static bool autoCollectSunshine = false;
 
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.25f, 0.25f, 0.25f, 1.0f));
     ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.2f, 0.8f, 0.2f, 1.0f));
@@ -205,6 +206,13 @@ void ImGuiManager::ShowSunshineWindow(int* sunshine, int& tempSunshine) {
         AddLog(std::string("3格CD 已") + (cdSlot3Enabled ? "启用" : "禁用"));
     }
     
+    ImGui::Separator();
+    
+    // 自动采集阳光功能
+    if (ImGui::Checkbox("自动采集阳光", &autoCollectSunshine)) {
+        AddLog(std::string("自动采集阳光 已") + (autoCollectSunshine ? "启用" : "禁用"));
+    }
+    
     ImGui::PopStyleColor(2);
     
     // 持续应用CD格状态（类似CE的锁定功能）
@@ -217,6 +225,11 @@ void ImGuiManager::ShowSunshineWindow(int* sunshine, int& tempSunshine) {
         }
         if (cdSlot3Enabled) {
             g_memoryManager.WriteCDSlot(3, true);
+        }
+        
+        // 自动采集阳光
+        if (autoCollectSunshine) {
+            g_memoryManager.CollectSunshine();
         }
     }
 

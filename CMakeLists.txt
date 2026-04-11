@@ -19,7 +19,7 @@ set(IMGUI_SOURCES
     backends/imgui_impl_dx11.cpp
 )
 
-add_executable(NICOYI main.cpp ImGuiManager.cpp MemoryManager.cpp ${IMGUI_SOURCES})
+add_executable(NICOYI WIN32 main.cpp ImGuiManager.cpp MemoryManager.cpp ${IMGUI_SOURCES})
 
 if(MSVC)
     target_compile_definitions(NICOYI PRIVATE _UNICODE UNICODE)

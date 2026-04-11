@@ -10,10 +10,10 @@ MemoryManager g_memoryManager;
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 // Main code
-int main(int, char**)
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
     // Create application window with no border and transparent background
-    WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(NULL), NULL, NULL, NULL, NULL, _T("ImGui Example"), NULL };
+    WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, hInstance, NULL, NULL, NULL, NULL, _T("ImGui Example"), NULL };
     ::RegisterClassEx(&wc);
     
     // Create borderless window
@@ -25,7 +25,7 @@ int main(int, char**)
         0, 0,  // Full screen
         GetSystemMetrics(SM_CXSCREEN),
         GetSystemMetrics(SM_CYSCREEN),
-        NULL, NULL, wc.hInstance, NULL
+        NULL, NULL, hInstance, NULL
     );
     
     // Set window transparency
@@ -34,7 +34,7 @@ int main(int, char**)
     // Initialize ImGui
     if (!g_imguiManager.Initialize(hwnd))
     {
-        ::UnregisterClass(wc.lpszClassName, wc.hInstance);
+        ::UnregisterClass(wc.lpszClassName, hInstance);
         return 1;
     }
 
@@ -42,7 +42,7 @@ int main(int, char**)
     bool attached = g_memoryManager.AttachProcess(L"PlantsVsZombies.exe");
 
     // Show the window
-    ::ShowWindow(hwnd, SW_SHOWDEFAULT);
+    ::ShowWindow(hwnd, nCmdShow);
     ::UpdateWindow(hwnd);
 
     // Our state
@@ -96,7 +96,7 @@ int main(int, char**)
     g_memoryManager.DetachProcess();
     
     ::DestroyWindow(hwnd);
-    ::UnregisterClass(wc.lpszClassName, wc.hInstance);
+    ::UnregisterClass(wc.lpszClassName, hInstance);
 
     return 0;
 }

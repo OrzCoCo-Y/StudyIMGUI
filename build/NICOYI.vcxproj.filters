@@ -4,6 +4,12 @@
     <ClCompile Include="F:\NicoYI\ZWDZJS_0411\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="F:\NicoYI\ZWDZJS_0411\ImGuiManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="F:\NicoYI\ZWDZJS_0411\MemoryManager.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="F:\NicoYI\ZWDZJS_0411\imgui.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

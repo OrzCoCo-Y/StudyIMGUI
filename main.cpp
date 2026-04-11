@@ -82,7 +82,7 @@ int main(int, char**)
         }
 
         // Show process status
-        ImGui::Begin("Status");
+        ImGui::Begin("状态");
         if (g_memoryManager.IsAttached()) {
             ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected to Plants vs Zombies");
         } else {

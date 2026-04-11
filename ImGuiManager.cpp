@@ -15,6 +15,9 @@ bool ImGuiManager::Initialize(HWND hWnd) {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
 
+    // Load Chinese font
+    io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\simsun.ttc", 18.0f, NULL, io.Fonts->GetGlyphRangesChineseFull());
+
     ImGui::StyleColorsDark();
 
     ImGui_ImplWin32_Init(hwnd);
@@ -56,7 +59,7 @@ bool ImGuiManager::ProcessMessage(MSG* msg) {
 }
 
 void ImGuiManager::ShowSunshineWindow(int* sunshine) {
-    ImGui::Begin("Plants vs Zombies - Sunshine Modifier");
+    ImGui::Begin("Sunshine Modifier中文");
     
     ImGui::Text("Current Sunshine: %d", *sunshine);
     ImGui::InputInt("Sunshine", sunshine);

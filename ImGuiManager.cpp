@@ -134,7 +134,13 @@ void ImGuiManager::ShowSunshineWindow(int* sunshine, int& tempSunshine) {
     ImGui::SetNextWindowPos(ImVec2(100, 100), ImGuiCond_FirstUseEver);
     
     // 创建美化的窗口
-    ImGui::Begin("植物大战僵尸阳光修改器", NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse);
+    static bool isOpen = true;
+    ImGui::Begin("植物大战僵尸阳光修改器", &isOpen, ImGuiWindowFlags_NoResize);
+    
+    // 关闭按钮功能
+    if (!isOpen) {
+        ::PostQuitMessage(0);
+    }
 
     // 标题样式
     ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);

@@ -1,43 +1,59 @@
-# Prerequisites
-*.d
-CMake*
-out*
-.vs
-# Compiled Object files
-*.slo
-*.lo
-*.o
+# ==============================
+# CMake 生成文件
+# ==============================
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+compile_commands.json
+CTestTestfile.cmake
+cmake_install.cmake
+install_manifest.txt
+Makefile
+
+# ==============================
+# Visual Studio / Cursor 本地文件
+# ==============================
+.vs/
+.vscode/
+*.sln.docstates
+*.VC.db
+*.VC.opendb
+*.opensdf
+*.sdf
+*.suo
+*.user
+*.userosscache
+*.vcxproj.user
+
+# ==============================
+# 编译中间产物与可执行文件
+# ==============================
 *.obj
-
-# Precompiled Headers
-*.gch
+*.o
+*.lo
+*.slo
 *.pch
-
-# Linker files
+*.gch
 *.ilk
-
-# Debugger Files
 *.pdb
-
-# Compiled Dynamic libraries
+*.idb
+*.dwo
+*.lib
+*.a
+*.la
+*.lai
+*.dll
 *.so
 *.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
 *.exe
 *.out
 *.app
 
-# debug information files
-*.dwo
+# ==============================
+# 其他临时文件
+# ==============================
+*.log
+*.tmp
+*.cache
+*.d

@@ -15,7 +15,7 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 bool PumpWindowMessages(bool& shouldQuit);
 HWND CreateOverlayWindow(HINSTANCE hInstance);
 bool InitializeApplication(HWND hwnd);
-void RunMainLoop();
+void RunMainLoop(HWND hwnd);
 void CleanupApplication(HINSTANCE hInstance, HWND hwnd);
 
 namespace
@@ -46,7 +46,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
     ::ShowWindow(hwnd, nCmdShow);
     ::UpdateWindow(hwnd);
-    RunMainLoop();
+    RunMainLoop(hwnd);
     CleanupApplication(hInstance, hwnd);
     return 0;
 }
@@ -95,13 +95,15 @@ bool InitializeApplication(HWND hwnd)
     return true;
 }
 
-void RunMainLoop()
+void RunMainLoop(HWND hwnd)
 {
     // ==============================
     // 运行时状态
     // ==============================
     int sunshine = 0;
     int pendingSunshine = 0;  // UI 输入值（用于写入阳光）。
+    bool homeKeyPressed = false;
+    bool endKeyPressed = false;
 
     // ==============================
     // 主循环：事件处理 -> 数据同步 -> UI 绘制
@@ -114,6 +116,20 @@ void RunMainLoop()
         {
             break;
         }
+
+        // Home 显示窗口，End 隐藏窗口；使用按下沿触发避免长按反复执行。
+        bool isHomeDown = (::GetAsyncKeyState(VK_HOME) & 0x8000) != 0;
+        bool isEndDown = (::GetAsyncKeyState(VK_END) & 0x8000) != 0;
+        if (isHomeDown && !homeKeyPressed)
+        {
+            ::ShowWindow(hwnd, SW_SHOW);
+        }
+        if (isEndDown && !endKeyPressed)
+        {
+            ::ShowWindow(hwnd, SW_HIDE);
+        }
+        homeKeyPressed = isHomeDown;
+        endKeyPressed = isEndDown;
 
         // 2) 开始新的 ImGui 帧。
         g_imguiManager.NewFrame();

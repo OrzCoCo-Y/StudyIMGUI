@@ -80,14 +80,7 @@ void ImGuiManager::AddLog(const std::string& message) {
     }
 }
 
-void ImGuiManager::ShowLogWindow() {
-    if (!m_showLogWindow) return;
-    
-    ImGui::SetNextWindowSize(ImVec2(600, 400), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowPos(ImVec2(500, 100), ImGuiCond_FirstUseEver);
-    
-    ImGui::Begin("操作日志", &m_showLogWindow, ImGuiWindowFlags_NoCollapse);
-    
+void ImGuiManager::RenderLogPanel() {
     // 清空日志按钮
     if (ImGui::Button("清空日志")) {
         m_logMessages.clear();
@@ -112,8 +105,10 @@ void ImGuiManager::ShowLogWindow() {
     
     ImGui::Separator();
     
-    // 日志显示区域
-    ImGui::BeginChild("LogScroll", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), true);
+    // 日志显示区域采用自适应高度，并设置最小可视高度，避免窗口较小时日志被完全挤压。
+    float availableHeight = ImGui::GetContentRegionAvail().y;
+    float logPanelHeight = availableHeight > 140.0f ? availableHeight : 140.0f;
+    ImGui::BeginChild("LogScroll", ImVec2(0, logPanelHeight), true, ImGuiWindowFlags_HorizontalScrollbar);
     for (size_t i = 0; i < m_logMessages.size(); i++) {
         ImGui::TextUnformatted(m_logMessages[i].c_str());
     }
@@ -124,18 +119,17 @@ void ImGuiManager::ShowLogWindow() {
     }
     
     ImGui::EndChild();
-    
-    ImGui::End();
 }
 
 void ImGuiManager::RenderSunshineWindow(int* sunshine, int& pendingSunshine) {
     // 设置窗口大小和位置
-    ImGui::SetNextWindowSize(ImVec2(400, 350), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(420, 430), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowPos(ImVec2(100, 100), ImGuiCond_FirstUseEver);
     
     // 创建主功能窗口
     static bool isOpen = true;
-    ImGui::Begin("植物大战僵尸阳光修改器", &isOpen, ImGuiWindowFlags_NoResize);
+    // 行业惯例：主工具窗口允许用户按需拉伸，便于容纳日志等调试信息。
+    ImGui::Begin("植物大战僵尸阳光修改器", &isOpen);
     
     // 点击窗口关闭按钮后退出程序
     if (!isOpen) {
@@ -148,38 +142,40 @@ void ImGuiManager::RenderSunshineWindow(int* sunshine, int& pendingSunshine) {
     ImGui::PopFont();
     ImGui::Separator();
 
-    // 日志窗口开关
-    if (ImGui::Checkbox("显示日志窗口", &m_showLogWindow)) {
-        if (m_showLogWindow) {
-            AddLog("日志窗口已打开");
-        } else {
-            AddLog("日志窗口已关闭");
+    if (ImGui::BeginTabBar("MainTabs")) {
+        if (ImGui::BeginTabItem("绘制")) {
+            ImGui::Text("当前阳光值:");
+            ImGui::SameLine();
+            ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "%d", *sunshine);
+            ImGui::Separator();
+            RenderProcessStatus();
+            ImGui::EndTabItem();
         }
+
+        if (ImGui::BeginTabItem("修改")) {
+            RenderSunshineControls(*sunshine, pendingSunshine);
+            ImGui::Separator();
+            RenderFeatureToggles();
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
     }
 
-    ImGui::Spacing();
-
-    RenderSunshineControls(*sunshine, pendingSunshine);
-    ImGui::Separator();
-    RenderFeatureToggles();
+    // 持续功能按当前开关状态每帧生效，不受标签页切换影响。
     ApplyContinuousFeatures();
+
+    // 大项目常见做法：业务操作与开发日志分区，日志作为可折叠调试面板默认收起。
     ImGui::Separator();
-    RenderProcessStatus();
+    if (ImGui::CollapsingHeader("开发者日志"))
+    {
+        ImGui::Text("日志条数: %d", static_cast<int>(m_logMessages.size()));
+        RenderLogPanel();
+    }
 
     ImGui::End();
-
-    // 显示日志窗口
-    ShowLogWindow();
 }
 
 void ImGuiManager::RenderSunshineControls(const int& sunshine, int& pendingSunshine) {
-    // 当前阳光值显示
-    ImGui::Text("当前阳光值:");
-    ImGui::SameLine();
-    ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "%d", sunshine);
-
-    ImGui::Spacing();
-
     // 阳光值输入
     ImGui::Text("设置阳光值:");
     ImGui::PushItemWidth(-1);

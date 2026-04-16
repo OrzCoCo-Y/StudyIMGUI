@@ -14,7 +14,6 @@ private:
 	IDXGISwapChain* m_pSwapChain = nullptr;
 	ID3D11RenderTargetView* m_mainRenderTargetView = nullptr;
 	HWND m_hwnd = nullptr;
-	bool m_showLogWindow = false;
 	bool m_cdSlot1Enabled = false;
 	bool m_cdSlot2Enabled = false;
 	bool m_cdSlot3Enabled = false;
@@ -30,12 +29,12 @@ public:
 	void RenderSunshineWindow(int* sunshine, int& pendingSunshine);
 	void HandleResize(WPARAM wParam, LPARAM lParam);
 	void AddLog(const std::string& message);
-	void ShowLogWindow();
 
 private:
 	void RenderSunshineControls(const int& sunshine, int& pendingSunshine);
 	void RenderFeatureToggles();
 	void RenderProcessStatus();
+	void RenderLogPanel();
 	void ApplyContinuousFeatures();
 
 	bool CreateDeviceD3D(HWND hWnd);

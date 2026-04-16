@@ -1,34 +1,31 @@
 #include "MemoryManager.h"
 #include <tlhelp32.h>
-#include <iostream>
-
-using namespace std;
 
 MemoryManager::~MemoryManager() {
 	DetachProcess();
 }
 
 bool MemoryManager::AttachProcess(const std::wstring& processName) {
-	processId = GetProcessIdByName(processName);
-	if (processId == 0) {
+	m_processId = GetProcessIdByName(processName);
+	if (m_processId == 0) {
 		return false;
 	}
 
-	hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, processId);
-	return hProcess != NULL;
+	m_processHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, m_processId);
+	return m_processHandle != nullptr;
 }
 
 void MemoryManager::DetachProcess() {
-	if (hProcess != NULL) {
-		CloseHandle(hProcess);
-		hProcess = NULL;
+	if (m_processHandle != nullptr) {
+		CloseHandle(m_processHandle);
+		m_processHandle = nullptr;
 	}
-	processId = 0;
+	m_processId = 0;
 }
 
 // ==================== 通用指针链读取方法实现 ====================
 
-DWORD MemoryManager::ResolvePointerChain(DWORD baseAddress, const std::vector<DWORD>& offsets) {
+uintptr_t MemoryManager::ResolvePointerChain(uintptr_t baseAddress, const std::vector<DWORD>& offsets) {
 	if (!IsAttached()) {
 		return 0;
 	}
@@ -37,7 +34,11 @@ DWORD MemoryManager::ResolvePointerChain(DWORD baseAddress, const std::vector<DW
 		return 0;
 	}
 
-	DWORD currentAddress = baseAddress;
+	// 说明：
+	// 1) currentAddress 使用 uintptr_t，是为了兼容当前编译目标位宽（x86/x64）。
+	// 2) currentValue 仍使用 DWORD，是因为本项目目标游戏进程的指针链节点按 32 位地址存储。
+	//    读取后再提升到 uintptr_t 参与后续地址运算，可同时兼顾语义清晰和编译器告警消除。
+	uintptr_t currentAddress = baseAddress;
 	DWORD currentValue = 0;
 
 	// 读取基地址的值
@@ -76,7 +77,7 @@ bool MemoryManager::ReadSunshine(int& sunshine) {
 
 	// 使用新的指针链读取方法
 	// 阳光地址: [[006A9EC0] + 768] + 5560
-	return ReadPointerChainValue<int>(BASE_ADDRESS, {OFFSET_1, OFFSET_2}, sunshine);
+	return ReadPointerChainValue<int>(kBaseAddress, {kOffset1, kOffset2}, sunshine);
 }
 
 bool MemoryManager::WriteSunshine(int sunshine) {
@@ -85,7 +86,7 @@ bool MemoryManager::WriteSunshine(int sunshine) {
 	}
 
 	// 使用新的指针链写入方法
-	return WritePointerChainValue<int>(BASE_ADDRESS, {OFFSET_1, OFFSET_2}, sunshine);
+	return WritePointerChainValue<int>(kBaseAddress, {kOffset1, kOffset2}, sunshine);
 }
 
 bool MemoryManager::WriteCDSlot(int slot, bool enabled) {
@@ -110,7 +111,7 @@ bool MemoryManager::WriteCDSlot(int slot, bool enabled) {
 	}
 
 	BYTE value = enabled ? 1 : 0;
-	return WritePointerChainValue<BYTE>(BASE_ADDRESS, {OFFSET_1, 0x144, slotOffset}, value);
+	return WritePointerChainValue<BYTE>(kBaseAddress, {kOffset1, 0x144, slotOffset}, value);
 }
 
 bool MemoryManager::CollectSunshine() {
@@ -119,51 +120,53 @@ bool MemoryManager::CollectSunshine() {
 	}
 
 	// 自动采集阳光地址: [[006A9EC0] + 768] + E4
-	DWORD targetAddress = ResolvePointerChain(BASE_ADDRESS, {OFFSET_1, 0xE4});
+	uintptr_t targetAddress = ResolvePointerChain(kBaseAddress, {kOffset1, 0xE4});
 	if (targetAddress == 0) {
 		return false;
 	}
+	// 目标函数参数约定为 32 位地址，这里显式收窄，避免隐式转换带来歧义。
+	DWORD targetAddress32 = static_cast<DWORD>(targetAddress);
 	
-	// Allocate memory in the target process for the parameter
-	LPVOID paramAddress = VirtualAllocEx(hProcess, NULL, sizeof(DWORD), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-	if (paramAddress == NULL) {
+	// 在目标进程中分配内存，用于传递参数
+	LPVOID paramAddress = VirtualAllocEx(m_processHandle, nullptr, sizeof(DWORD), MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+	if (paramAddress == nullptr) {
 		return false;
 	}
 
-	// Write the parameter value to the allocated memory
-	if (!WriteProcessMemory(hProcess, paramAddress, &targetAddress, sizeof(DWORD), NULL)) {
-		VirtualFreeEx(hProcess, paramAddress, 0, MEM_RELEASE);
+	// 将参数值写入刚分配的内存
+	if (!WriteProcessMemory(m_processHandle, paramAddress, &targetAddress32, sizeof(DWORD), nullptr)) {
+		VirtualFreeEx(m_processHandle, paramAddress, 0, MEM_RELEASE);
 		return false;
 	}
 
-	// Create a remote thread to call the function at 0x004309D0
+	// 创建远程线程，调用目标函数 0x004309D0
 	HANDLE hThread = CreateRemoteThread(
-		hProcess,
-		NULL,
+		m_processHandle,
+		nullptr,
 		0,
 		(LPTHREAD_START_ROUTINE)0x004309D0,
 		paramAddress,
 		0,
-		NULL
+		nullptr
 	);
 
-	if (hThread == NULL) {
-		VirtualFreeEx(hProcess, paramAddress, 0, MEM_RELEASE);
+	if (hThread == nullptr) {
+		VirtualFreeEx(m_processHandle, paramAddress, 0, MEM_RELEASE);
 		return false;
 	}
 
-	// Wait for the thread to finish
+	// 等待远程线程执行完成
 	WaitForSingleObject(hThread, INFINITE);
 	
-	// Clean up
+	// 清理资源
 	CloseHandle(hThread);
-	VirtualFreeEx(hProcess, paramAddress, 0, MEM_RELEASE);
+	VirtualFreeEx(m_processHandle, paramAddress, 0, MEM_RELEASE);
 	
 	return true;
 }
 
 bool MemoryManager::IsAttached() const {
-	return hProcess != NULL;
+	return m_processHandle != nullptr;
 }
 
 DWORD MemoryManager::GetProcessIdByName(const std::wstring& processName) {
@@ -188,16 +191,12 @@ DWORD MemoryManager::GetProcessIdByName(const std::wstring& processName) {
 	return 0;
 }
 
-bool MemoryManager::ReadMemory(DWORD address, void* buffer, SIZE_T size) {
+bool MemoryManager::ReadMemory(uintptr_t address, void* buffer, SIZE_T size) {
     SIZE_T bytesRead;
-    return ReadProcessMemory(hProcess, reinterpret_cast<LPCVOID>(address), buffer, size, &bytesRead) && (bytesRead == size);
+    return ReadProcessMemory(m_processHandle, reinterpret_cast<LPCVOID>(address), buffer, size, &bytesRead) && (bytesRead == size);
 }
 
-bool MemoryManager::WriteMemory(DWORD address, const void* buffer, SIZE_T size) {
+bool MemoryManager::WriteMemory(uintptr_t address, const void* buffer, SIZE_T size) {
     SIZE_T bytesWritten;
-    return WriteProcessMemory(hProcess, reinterpret_cast<LPVOID>(address), buffer, size, &bytesWritten) && (bytesWritten == size);
-}
-
-DWORD MemoryManager::GetSunshineAddress() {
-	return ResolvePointerChain(BASE_ADDRESS, {OFFSET_1, OFFSET_2});
+    return WriteProcessMemory(m_processHandle, reinterpret_cast<LPVOID>(address), buffer, size, &bytesWritten) && (bytesWritten == size);
 }

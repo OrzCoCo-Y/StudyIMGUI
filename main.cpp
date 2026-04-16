@@ -2,103 +2,171 @@
 #include "MemoryManager.h"
 #include <tchar.h>
 
-// Global instances
+// ==============================
+// 全局管理器实例
+// ==============================
 ImGuiManager g_imguiManager;
 MemoryManager g_memoryManager;
 
-// Forward declarations
+// ==============================
+// 前置声明
+// ==============================
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+bool PumpWindowMessages(bool& shouldQuit);
+HWND CreateOverlayWindow(HINSTANCE hInstance);
+bool InitializeApplication(HWND hwnd);
+void RunMainLoop();
+void CleanupApplication(HINSTANCE hInstance, HWND hwnd);
 
-// Main code
+namespace
+{
+    constexpr LPCTSTR kWindowClassName = _T("ImGui Example");
+    constexpr LPCTSTR kWindowTitle = _T("Plants vs Zombies Sunshine Modifier");
+}
+
+// ==============================
+// 应用入口
+// ==============================
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-    // Create application window with no border and transparent background
-    WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, hInstance, NULL, NULL, NULL, NULL, _T("ImGui Example"), NULL };
-    ::RegisterClassEx(&wc);
-    
-    // Create borderless window
+    (void)hPrevInstance;
+    (void)lpCmdLine;
+
+    HWND hwnd = CreateOverlayWindow(hInstance);
+    if (hwnd == NULL)
+    {
+        return 1;
+    }
+
+    if (!InitializeApplication(hwnd))
+    {
+        CleanupApplication(hInstance, hwnd);
+        return 1;
+    }
+
+    ::ShowWindow(hwnd, nCmdShow);
+    ::UpdateWindow(hwnd);
+    RunMainLoop();
+    CleanupApplication(hInstance, hwnd);
+    return 0;
+}
+
+HWND CreateOverlayWindow(HINSTANCE hInstance)
+{
+    // 注册无边框覆盖层窗口类。
+    WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, hInstance, NULL, NULL, NULL, NULL, kWindowClassName, NULL };
+    if (!::RegisterClassEx(&wc))
+    {
+        return NULL;
+    }
+
+    // 创建全屏分层弹出窗口（可交互）。
     HWND hwnd = ::CreateWindowEx(
-        WS_EX_LAYERED,  // Extended styles for layered window (no WS_EX_TRANSPARENT to allow mouse events)
+        WS_EX_LAYERED,  // 不加 WS_EX_TRANSPARENT，确保 ImGui 可接收鼠标键盘事件。
         wc.lpszClassName,
-        _T("Plants vs Zombies Sunshine Modifier"),
-        WS_POPUP,  // No border or title bar
-        0, 0,  // Full screen
+        kWindowTitle,
+        WS_POPUP,  // 无边框、无标题栏。
+        0, 0,
         GetSystemMetrics(SM_CXSCREEN),
         GetSystemMetrics(SM_CYSCREEN),
         NULL, NULL, hInstance, NULL
     );
-    
-    // Set window transparency
-    ::SetLayeredWindowAttributes(hwnd, RGB(0, 0, 0), 0, LWA_COLORKEY);
-
-    // Initialize ImGui
-    if (!g_imguiManager.Initialize(hwnd))
+    if (hwnd == NULL)
     {
-        ::UnregisterClass(wc.lpszClassName, hInstance);
-        return 1;
+        ::UnregisterClass(kWindowClassName, hInstance);
+        return NULL;
     }
 
-    // Attach to Plants vs Zombies process
-    bool attached = g_memoryManager.AttachProcess(L"PlantsVsZombies.exe");
+    // 将黑色区域视为透明。
+    ::SetLayeredWindowAttributes(hwnd, RGB(0, 0, 0), 0, LWA_COLORKEY);
+    return hwnd;
+}
 
-    // Show the window
-    ::ShowWindow(hwnd, nCmdShow);
-    ::UpdateWindow(hwnd);
+bool InitializeApplication(HWND hwnd)
+{
+    // 初始化 ImGui 图形后端与上下文。
+    if (!g_imguiManager.Initialize(hwnd))
+    {
+        return false;
+    }
 
-    // Our state
+    // 启动时尝试附加目标进程（失败可在 UI 中重连）。
+    g_memoryManager.AttachProcess(L"PlantsVsZombies.exe");
+    return true;
+}
+
+void RunMainLoop()
+{
+    // ==============================
+    // 运行时状态
+    // ==============================
     int sunshine = 0;
-    bool showDemoWindow = false;
-    // 在 main 函数的 while 循环外部，声明临时变量
+    int pendingSunshine = 0;  // UI 输入值（用于写入阳光）。
 
-    int tempSunshine = 0;
-
-    // Main loop
+    // ==============================
+    // 主循环：事件处理 -> 数据同步 -> UI 绘制
+    // ==============================
     bool done = false;
     while (!done)
     {
-        // Poll and handle messages (inputs, window resize, etc.)
-        MSG msg;
-        while (::PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE))
+        // 1) 处理系统消息（输入、尺寸变化、退出等）。
+        if (!PumpWindowMessages(done) || done)
         {
-            ::TranslateMessage(&msg);
-            ::DispatchMessage(&msg);
-            if (msg.message == WM_QUIT)
-                done = true;
-        }
-        if (done)
             break;
+        }
 
-        // 开始新的 ImGui 帧
+        // 2) 开始新的 ImGui 帧。
         g_imguiManager.NewFrame();
 
-
-        // 从游戏中读取阳光值到 sunshine 变量
-        if (g_memoryManager.IsAttached()) {
+        // 3) 从游戏进程同步当前阳光值。
+        if (g_memoryManager.IsAttached())
+        {
             g_memoryManager.ReadSunshine(sunshine);
         }
 
-        // 修改这里：将临时变量 tempSunshine 也传递进去
-        g_imguiManager.ShowSunshineWindow(&sunshine, tempSunshine);
+        // 4) 构建功能 UI（阳光编辑、CD 开关、日志等）。
+        g_imguiManager.RenderSunshineWindow(&sunshine, pendingSunshine);
 
-
-        // Rendering
+        // 5) 提交渲染。
         g_imguiManager.Render();
     }
-
-    // Cleanup
-    g_imguiManager.Shutdown();
-    g_memoryManager.DetachProcess();
-    
-    ::DestroyWindow(hwnd);
-    ::UnregisterClass(wc.lpszClassName, hInstance);
-
-    return 0;
 }
 
-// Win32 message handler
+void CleanupApplication(HINSTANCE hInstance, HWND hwnd)
+{
+    // ==============================
+    // 资源清理
+    // ==============================
+    g_imguiManager.Shutdown();
+    g_memoryManager.DetachProcess();
+
+    if (hwnd != NULL)
+    {
+        ::DestroyWindow(hwnd);
+    }
+    ::UnregisterClass(kWindowClassName, hInstance);
+}
+
+bool PumpWindowMessages(bool& shouldQuit)
+{
+    MSG msg;
+    while (::PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE))
+    {
+        ::TranslateMessage(&msg);
+        ::DispatchMessage(&msg);
+        if (msg.message == WM_QUIT)
+        {
+            shouldQuit = true;
+            return false;
+        }
+    }
+    return true;
+}
+
+// Win32 消息处理函数
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    // Process ImGui messages
+    // 优先交给 ImGui 处理输入消息。
     MSG message;
     message.hwnd = hWnd;
     message.message = msg;
@@ -113,10 +181,11 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     switch (msg)
     {
     case WM_SIZE:
+        // 窗口尺寸变化时重建渲染目标资源。
         g_imguiManager.HandleResize(wParam, lParam);
         return 0;
     case WM_SYSCOMMAND:
-        if ((wParam & 0xfff0) == SC_KEYMENU) // Disable ALT application menu
+        if ((wParam & 0xfff0) == SC_KEYMENU) // 屏蔽 ALT 激活系统菜单行为。
             return 0;
         break;
     case WM_DESTROY:

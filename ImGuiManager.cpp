@@ -5,13 +5,13 @@
 // 全局实例声明
 extern MemoryManager g_memoryManager;
 
-// Forward declare message handler from imgui_impl_win32.cpp
+// 前置声明：来自 imgui_impl_win32.cpp 的消息处理函数
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 bool ImGuiManager::Initialize(HWND hWnd) {
-    hwnd = hWnd;
+    m_hwnd = hWnd;
     
-    if (!CreateDeviceD3D(hwnd)) {
+    if (!CreateDeviceD3D(m_hwnd)) {
         CleanupDeviceD3D();
         return false;
     }
@@ -20,13 +20,13 @@ bool ImGuiManager::Initialize(HWND hWnd) {
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
 
-    // Load Chinese font
+    // 加载中文字体，避免界面中文出现乱码
     io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\simsun.ttc", 18.0f, NULL, io.Fonts->GetGlyphRangesChineseFull());
 
     ImGui::StyleColorsDark();
 
-    ImGui_ImplWin32_Init(hwnd);
-    ImGui_ImplDX11_Init(g_pd3dDevice, g_pd3dDeviceContext);
+    ImGui_ImplWin32_Init(m_hwnd);
+    ImGui_ImplDX11_Init(m_pd3dDevice, m_pd3dDeviceContext);
 
     return true;
 }
@@ -49,15 +49,15 @@ void ImGuiManager::Render() {
     ImGui::Render();
     
     const float clear_color_with_alpha[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-    g_pd3dDeviceContext->OMSetRenderTargets(1, &g_mainRenderTargetView, NULL);
-    g_pd3dDeviceContext->ClearRenderTargetView(g_mainRenderTargetView, clear_color_with_alpha);
+    m_pd3dDeviceContext->OMSetRenderTargets(1, &m_mainRenderTargetView, nullptr);
+    m_pd3dDeviceContext->ClearRenderTargetView(m_mainRenderTargetView, clear_color_with_alpha);
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
-    g_pSwapChain->Present(1, 0);
+    m_pSwapChain->Present(1, 0);
 }
 
 bool ImGuiManager::ProcessMessage(MSG* msg) {
-    if (ImGui_ImplWin32_WndProcHandler(hwnd, msg->message, msg->wParam, msg->lParam)) {
+    if (ImGui_ImplWin32_WndProcHandler(m_hwnd, msg->message, msg->wParam, msg->lParam)) {
         return true;
     }
     return false;
@@ -72,25 +72,25 @@ void ImGuiManager::AddLog(const std::string& message) {
     strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", &localTime);
     
     std::string logEntry = std::string("[") + timeStr + "] " + message;
-    logMessages.push_back(logEntry);
+    m_logMessages.push_back(logEntry);
     
     // 限制日志数量，防止内存占用过大
-    if (logMessages.size() > 100) {
-        logMessages.erase(logMessages.begin());
+    if (m_logMessages.size() > 100) {
+        m_logMessages.erase(m_logMessages.begin());
     }
 }
 
 void ImGuiManager::ShowLogWindow() {
-    if (!showLogWindow) return;
+    if (!m_showLogWindow) return;
     
     ImGui::SetNextWindowSize(ImVec2(600, 400), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowPos(ImVec2(500, 100), ImGuiCond_FirstUseEver);
     
-    ImGui::Begin("操作日志", &showLogWindow, ImGuiWindowFlags_NoCollapse);
+    ImGui::Begin("操作日志", &m_showLogWindow, ImGuiWindowFlags_NoCollapse);
     
     // 清空日志按钮
     if (ImGui::Button("清空日志")) {
-        logMessages.clear();
+        m_logMessages.clear();
         AddLog("日志已清空");
     }
     
@@ -100,8 +100,8 @@ void ImGuiManager::ShowLogWindow() {
         FILE* file;
         errno_t err = fopen_s(&file, "log.txt", "w");
         if (err == 0 && file) {
-            for (size_t i = 0; i < logMessages.size(); i++) {
-                fprintf(file, "%s\n", logMessages[i].c_str());
+            for (size_t i = 0; i < m_logMessages.size(); i++) {
+                fprintf(file, "%s\n", m_logMessages[i].c_str());
             }
             fclose(file);
             AddLog("日志已保存到 log.txt");
@@ -114,8 +114,8 @@ void ImGuiManager::ShowLogWindow() {
     
     // 日志显示区域
     ImGui::BeginChild("LogScroll", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()), true);
-    for (size_t i = 0; i < logMessages.size(); i++) {
-        ImGui::TextUnformatted(logMessages[i].c_str());
+    for (size_t i = 0; i < m_logMessages.size(); i++) {
+        ImGui::TextUnformatted(m_logMessages[i].c_str());
     }
     
     // 自动滚动到底部
@@ -128,16 +128,16 @@ void ImGuiManager::ShowLogWindow() {
     ImGui::End();
 }
 
-void ImGuiManager::ShowSunshineWindow(int* sunshine, int& tempSunshine) {
+void ImGuiManager::RenderSunshineWindow(int* sunshine, int& pendingSunshine) {
     // 设置窗口大小和位置
     ImGui::SetNextWindowSize(ImVec2(400, 350), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowPos(ImVec2(100, 100), ImGuiCond_FirstUseEver);
     
-    // 创建美化的窗口
+    // 创建主功能窗口
     static bool isOpen = true;
     ImGui::Begin("植物大战僵尸阳光修改器", &isOpen, ImGuiWindowFlags_NoResize);
     
-    // 关闭按钮功能
+    // 点击窗口关闭按钮后退出程序
     if (!isOpen) {
         ::PostQuitMessage(0);
     }
@@ -149,8 +149,8 @@ void ImGuiManager::ShowSunshineWindow(int* sunshine, int& tempSunshine) {
     ImGui::Separator();
 
     // 日志窗口开关
-    if (ImGui::Checkbox("显示日志窗口", &showLogWindow)) {
-        if (showLogWindow) {
+    if (ImGui::Checkbox("显示日志窗口", &m_showLogWindow)) {
+        if (m_showLogWindow) {
             AddLog("日志窗口已打开");
         } else {
             AddLog("日志窗口已关闭");
@@ -159,19 +159,33 @@ void ImGuiManager::ShowSunshineWindow(int* sunshine, int& tempSunshine) {
 
     ImGui::Spacing();
 
+    RenderSunshineControls(*sunshine, pendingSunshine);
+    ImGui::Separator();
+    RenderFeatureToggles();
+    ApplyContinuousFeatures();
+    ImGui::Separator();
+    RenderProcessStatus();
+
+    ImGui::End();
+
+    // 显示日志窗口
+    ShowLogWindow();
+}
+
+void ImGuiManager::RenderSunshineControls(const int& sunshine, int& pendingSunshine) {
     // 当前阳光值显示
     ImGui::Text("当前阳光值:");
     ImGui::SameLine();
-    ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "%d", *sunshine);
-    
+    ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "%d", sunshine);
+
     ImGui::Spacing();
 
     // 阳光值输入
     ImGui::Text("设置阳光值:");
     ImGui::PushItemWidth(-1);
-    ImGui::InputInt("##sunshine", &tempSunshine, 10, 100);
+    ImGui::InputInt("##sunshine", &pendingSunshine, 10, 100);
     ImGui::PopItemWidth();
-    
+
     ImGui::Spacing();
 
     // 应用按钮
@@ -179,62 +193,59 @@ void ImGuiManager::ShowSunshineWindow(int* sunshine, int& tempSunshine) {
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.8f, 0.3f, 1.0f));
     ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.6f, 0.1f, 1.0f));
     if (ImGui::Button("应用修改", ImVec2(-1, 40))) {
-        g_memoryManager.WriteSunshine(tempSunshine);
-        AddLog("阳光值已修改为: " + std::to_string(tempSunshine));
+        g_memoryManager.WriteSunshine(pendingSunshine);
+        AddLog("阳光值已修改为: " + std::to_string(pendingSunshine));
     }
     ImGui::PopStyleColor(3);
+}
 
-    ImGui::Separator();
-
-    // CD格功能开关
+void ImGuiManager::RenderFeatureToggles() {
+    // CD 格功能开关
     ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "CD格功能开关");
-    static bool cdSlot1Enabled = false;
-    static bool cdSlot2Enabled = false;
-    static bool cdSlot3Enabled = false;
-    static bool autoCollectSunshine = false;
-
     ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.25f, 0.25f, 0.25f, 1.0f));
     ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.2f, 0.8f, 0.2f, 1.0f));
-    
-    if (ImGui::Checkbox("1格CD (无CD)", &cdSlot1Enabled)) {
-        AddLog(std::string("1格CD 已") + (cdSlot1Enabled ? "启用" : "禁用"));
+
+    if (ImGui::Checkbox("1格CD (无CD)", &m_cdSlot1Enabled)) {
+        AddLog(std::string("1格CD 已") + (m_cdSlot1Enabled ? "启用" : "禁用"));
     }
-    if (ImGui::Checkbox("2格CD (无CD)", &cdSlot2Enabled)) {
-        AddLog(std::string("2格CD 已") + (cdSlot2Enabled ? "启用" : "禁用"));
+    if (ImGui::Checkbox("2格CD (无CD)", &m_cdSlot2Enabled)) {
+        AddLog(std::string("2格CD 已") + (m_cdSlot2Enabled ? "启用" : "禁用"));
     }
-    if (ImGui::Checkbox("3格CD (无CD)", &cdSlot3Enabled)) {
-        AddLog(std::string("3格CD 已") + (cdSlot3Enabled ? "启用" : "禁用"));
+    if (ImGui::Checkbox("3格CD (无CD)", &m_cdSlot3Enabled)) {
+        AddLog(std::string("3格CD 已") + (m_cdSlot3Enabled ? "启用" : "禁用"));
     }
-    
+
     ImGui::Separator();
-    
+
     // 自动采集阳光功能
-    if (ImGui::Checkbox("自动采集阳光", &autoCollectSunshine)) {
-        AddLog(std::string("自动采集阳光 已") + (autoCollectSunshine ? "启用" : "禁用"));
+    if (ImGui::Checkbox("自动采集阳光", &m_autoCollectSunshine)) {
+        AddLog(std::string("自动采集阳光 已") + (m_autoCollectSunshine ? "启用" : "禁用"));
     }
-    
+
     ImGui::PopStyleColor(2);
-    
-    // 持续应用CD格状态（类似CE的锁定功能）
-    if (g_memoryManager.IsAttached()) {
-        if (cdSlot1Enabled) {
-            g_memoryManager.WriteCDSlot(1, true);
-        }
-        if (cdSlot2Enabled) {
-            g_memoryManager.WriteCDSlot(2, true);
-        }
-        if (cdSlot3Enabled) {
-            g_memoryManager.WriteCDSlot(3, true);
-        }
-        
-        // 自动采集阳光
-        if (autoCollectSunshine) {
-            g_memoryManager.CollectSunshine();
-        }
+}
+
+void ImGuiManager::ApplyContinuousFeatures() {
+    // 持续应用功能状态（类似 CE 锁定）
+    if (!g_memoryManager.IsAttached()) {
+        return;
     }
 
-    ImGui::Separator();
+    if (m_cdSlot1Enabled) {
+        g_memoryManager.WriteCDSlot(1, true);
+    }
+    if (m_cdSlot2Enabled) {
+        g_memoryManager.WriteCDSlot(2, true);
+    }
+    if (m_cdSlot3Enabled) {
+        g_memoryManager.WriteCDSlot(3, true);
+    }
+    if (m_autoCollectSunshine) {
+        g_memoryManager.CollectSunshine();
+    }
+}
 
+void ImGuiManager::RenderProcessStatus() {
     // 进程状态
     ImGui::Text("进程状态:");
     if (g_memoryManager.IsAttached()) {
@@ -246,17 +257,12 @@ void ImGuiManager::ShowSunshineWindow(int* sunshine, int& tempSunshine) {
             AddLog(attached ? "已连接到植物大战僵尸" : "连接失败");
         }
     }
-
-    ImGui::End();
-
-    // 显示日志窗口
-    ShowLogWindow();
 }
 
 void ImGuiManager::HandleResize(WPARAM wParam, LPARAM lParam) {
-    if (g_pd3dDevice != NULL && wParam != SIZE_MINIMIZED) {
+    if (m_pd3dDevice != nullptr && wParam != SIZE_MINIMIZED) {
         CleanupRenderTarget();
-        g_pSwapChain->ResizeBuffers(0, (UINT)LOWORD(lParam), (UINT)HIWORD(lParam), DXGI_FORMAT_UNKNOWN, 0);
+        m_pSwapChain->ResizeBuffers(0, (UINT)LOWORD(lParam), (UINT)HIWORD(lParam), DXGI_FORMAT_UNKNOWN, 0);
         CreateRenderTarget();
     }
 }
@@ -281,9 +287,9 @@ bool ImGuiManager::CreateDeviceD3D(HWND hWnd) {
     UINT createDeviceFlags = 0;
     D3D_FEATURE_LEVEL featureLevel;
     const D3D_FEATURE_LEVEL featureLevelArray[2] = { D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_0, };
-    HRESULT res = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, createDeviceFlags, featureLevelArray, 2, D3D11_SDK_VERSION, &sd, &g_pSwapChain, &g_pd3dDevice, &featureLevel, &g_pd3dDeviceContext);
+    HRESULT res = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_HARDWARE, NULL, createDeviceFlags, featureLevelArray, 2, D3D11_SDK_VERSION, &sd, &m_pSwapChain, &m_pd3dDevice, &featureLevel, &m_pd3dDeviceContext);
     if (res == DXGI_ERROR_UNSUPPORTED)
-        res = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_WARP, NULL, createDeviceFlags, featureLevelArray, 2, D3D11_SDK_VERSION, &sd, &g_pSwapChain, &g_pd3dDevice, &featureLevel, &g_pd3dDeviceContext);
+        res = D3D11CreateDeviceAndSwapChain(NULL, D3D_DRIVER_TYPE_WARP, NULL, createDeviceFlags, featureLevelArray, 2, D3D11_SDK_VERSION, &sd, &m_pSwapChain, &m_pd3dDevice, &featureLevel, &m_pd3dDeviceContext);
     if (res != S_OK)
         return false;
 
@@ -293,26 +299,26 @@ bool ImGuiManager::CreateDeviceD3D(HWND hWnd) {
 
 void ImGuiManager::CleanupDeviceD3D() {
     CleanupRenderTarget();
-    if (g_pSwapChain) {
-        g_pSwapChain->Release(); g_pSwapChain = NULL;
+    if (m_pSwapChain) {
+        m_pSwapChain->Release(); m_pSwapChain = nullptr;
     }
-    if (g_pd3dDeviceContext) {
-        g_pd3dDeviceContext->Release(); g_pd3dDeviceContext = NULL;
+    if (m_pd3dDeviceContext) {
+        m_pd3dDeviceContext->Release(); m_pd3dDeviceContext = nullptr;
     }
-    if (g_pd3dDevice) {
-        g_pd3dDevice->Release(); g_pd3dDevice = NULL;
+    if (m_pd3dDevice) {
+        m_pd3dDevice->Release(); m_pd3dDevice = nullptr;
     }
 }
 
 void ImGuiManager::CreateRenderTarget() {
     ID3D11Texture2D* pBackBuffer;
-    g_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer));
-    g_pd3dDevice->CreateRenderTargetView(pBackBuffer, NULL, &g_mainRenderTargetView);
+    m_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer));
+    m_pd3dDevice->CreateRenderTargetView(pBackBuffer, nullptr, &m_mainRenderTargetView);
     pBackBuffer->Release();
 }
 
 void ImGuiManager::CleanupRenderTarget() {
-    if (g_mainRenderTargetView) {
-        g_mainRenderTargetView->Release(); g_mainRenderTargetView = NULL;
+    if (m_mainRenderTargetView) {
+        m_mainRenderTargetView->Release(); m_mainRenderTargetView = nullptr;
     }
 }

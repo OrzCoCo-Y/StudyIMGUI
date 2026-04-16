@@ -89,14 +89,7 @@ void ImGuiManager::RenderLogPanel() {
     
     ImGui::SameLine();
     if (ImGui::Button("保存日志")) {
-        // 简单的日志保存功能
-        FILE* file;
-        errno_t err = fopen_s(&file, "log.txt", "w");
-        if (err == 0 && file) {
-            for (size_t i = 0; i < m_logMessages.size(); i++) {
-                fprintf(file, "%s\n", m_logMessages[i].c_str());
-            }
-            fclose(file);
+        if (SaveLogsToFile("log.txt")) {
             AddLog("日志已保存到 log.txt");
         } else {
             AddLog("保存日志失败");
@@ -144,18 +137,12 @@ void ImGuiManager::RenderSunshineWindow(int* sunshine, int& pendingSunshine) {
 
     if (ImGui::BeginTabBar("MainTabs")) {
         if (ImGui::BeginTabItem("绘制")) {
-            ImGui::Text("当前阳光值:");
-            ImGui::SameLine();
-            ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "%d", *sunshine);
-            ImGui::Separator();
-            RenderProcessStatus();
+            RenderOverviewTab(*sunshine);
             ImGui::EndTabItem();
         }
 
         if (ImGui::BeginTabItem("修改")) {
-            RenderSunshineControls(*sunshine, pendingSunshine);
-            ImGui::Separator();
-            RenderFeatureToggles();
+            RenderModifyTab(*sunshine, pendingSunshine);
             ImGui::EndTabItem();
         }
         ImGui::EndTabBar();
@@ -175,7 +162,23 @@ void ImGuiManager::RenderSunshineWindow(int* sunshine, int& pendingSunshine) {
     ImGui::End();
 }
 
+void ImGuiManager::RenderOverviewTab(const int& sunshine) {
+    ImGui::Text("当前阳光值:");
+    ImGui::SameLine();
+    ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "%d", sunshine);
+    ImGui::Separator();
+    RenderProcessStatus();
+}
+
+void ImGuiManager::RenderModifyTab(const int& sunshine, int& pendingSunshine) {
+    RenderSunshineControls(sunshine, pendingSunshine);
+    ImGui::Separator();
+    RenderFeatureToggles();
+}
+
 void ImGuiManager::RenderSunshineControls(const int& sunshine, int& pendingSunshine) {
+    (void)sunshine;
+
     // 阳光值输入
     ImGui::Text("设置阳光值:");
     ImGui::PushItemWidth(-1);
@@ -193,6 +196,20 @@ void ImGuiManager::RenderSunshineControls(const int& sunshine, int& pendingSunsh
         AddLog("阳光值已修改为: " + std::to_string(pendingSunshine));
     }
     ImGui::PopStyleColor(3);
+}
+
+bool ImGuiManager::SaveLogsToFile(const char* path) {
+    FILE* file = nullptr;
+    errno_t err = fopen_s(&file, path, "w");
+    if (err != 0 || file == nullptr) {
+        return false;
+    }
+
+    for (size_t i = 0; i < m_logMessages.size(); i++) {
+        fprintf(file, "%s\n", m_logMessages[i].c_str());
+    }
+    fclose(file);
+    return true;
 }
 
 void ImGuiManager::RenderFeatureToggles() {

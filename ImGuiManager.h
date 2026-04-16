@@ -31,9 +31,12 @@ public:
 	void AddLog(const std::string& message);
 
 private:
+	void RenderOverviewTab(const int& sunshine);
+	void RenderModifyTab(const int& sunshine, int& pendingSunshine);
 	void RenderSunshineControls(const int& sunshine, int& pendingSunshine);
 	void RenderFeatureToggles();
 	void RenderProcessStatus();
+	bool SaveLogsToFile(const char* path);
 	void RenderLogPanel();
 	void ApplyContinuousFeatures();
 

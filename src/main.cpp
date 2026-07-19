@@ -5,8 +5,8 @@
 // 自动采集阳光等功能。Home 键显示界面，End 键隐藏。
 // ==============================
 
-#include "ImGuiManager.h"
-#include "MemoryManager.h"
+#include "core/ImGuiManager.h"
+#include "core/MemoryManager.h"
 #include <tchar.h>
 
 // 全局管理器实例

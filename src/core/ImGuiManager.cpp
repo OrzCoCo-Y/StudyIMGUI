@@ -1,5 +1,5 @@
-#include "ImGuiManager.h"
-#include "MemoryManager.h"
+#include "core/ImGuiManager.h"
+#include "core/MemoryManager.h"
 #include <time.h>
 
 // 全局实例声明

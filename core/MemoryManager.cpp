@@ -230,3 +230,5 @@ bool MemoryManager::WriteMemory(uintptr_t address, const void* buffer, SIZE_T si
     SIZE_T bytesWritten;
     return WriteProcessMemory(m_processHandle, reinterpret_cast<LPVOID>(address), buffer, size, &bytesWritten) && (bytesWritten == size);
 }
+
+

@@ -1,8 +1,9 @@
-# Project: NICOYI Game Modifier Tool
+# Project: CoCo Game Modifier Tool
 
 ## Project Overview
-A generic Windows game modifier overlay using Dear ImGui + DirectX 11.
-6-tab universal menu framework: Visual / Assist / Numeric / Process / Settings / Developer.
+Multi-game Windows modifier overlay using Dear ImGui + DirectX 11.
+Modular structure: shared `core/` library + game-specific executables (`CoCoPvZ/`, etc.).
+6-tab menu framework: Visual / Assist / Numeric / Process / Settings / Developer.
 
 ## Code Style
 - **Language**: C++11 (CXX_STANDARD 11)
@@ -18,3 +19,7 @@ A generic Windows game modifier overlay using Dear ImGui + DirectX 11.
 - Headers: `#pragma once`, systematic Doxygen-style section comments
 - Implementation: matching .cpp with same section structure as header
 - Includes: own header first, then standard library, then project headers
+
+- @azure Rule - Use Azure Tools - When handling requests related to Azure, always use your tools.
+- @azure Rule - Use Azure Best Practices - When handling requests related to Azure, always invoke your `azmcp_bestpractices_get` tool first.
+- @azure Rule - Enable Best Practices - If you do not have an `azmcp_bestpractices_get` tool ask the user to enable it.

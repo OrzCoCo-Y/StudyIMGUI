@@ -8,7 +8,7 @@
 
 // ==============================
 // 内存管理器
-// Encapsulates process attach/detach and memory R/W
+// CoCo: Encapsulates process attach/detach and memory R/W
 // 封装目标游戏进程的附加、分离与内存读写操作。
 // Provides pointer chain resolution, template R/W interfaces
 // 提供指针链解析、泛型模板读写等通用接口，
@@ -157,3 +157,4 @@ private:
     // 向目标进程的指定地址写入内存
     bool WriteMemory(uintptr_t address, const void* buffer, SIZE_T size);
 };
+

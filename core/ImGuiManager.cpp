@@ -1,5 +1,5 @@
-#include "core/ImGuiManager.h"
-#include "core/MemoryManager.h"
+#include "ImGuiManager.h"
+#include "MemoryManager.h"
 #include <time.h>
 
 // Global instance declaration
@@ -398,3 +398,5 @@ void ImGuiManager::CleanupRenderTarget() {
         m_mainRenderTargetView->Release(); m_mainRenderTargetView = nullptr;
     }
 }
+
+

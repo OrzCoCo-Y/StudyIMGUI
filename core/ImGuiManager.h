@@ -9,9 +9,9 @@
 
 // ==============================
 // ImGui 管理器
-// Encapsulates Dear ImGui + DirectX 11 init, frame loop & cleanup
+// CoCo: Encapsulates Dear ImGui + DirectX 11 init, frame loop & cleanup
 // 封装 Dear ImGui + DirectX 11 渲染管线的初始化、帧循环与资源清理，
-// Provides game modifier UI (sunshine, CD toggles, auto-collect)
+// Provides CoCo modifier UI (sunshine, CD toggles, auto-collect)
 // 并提供游戏修改器主界面（阳光修改、CD 格开关、自动采集）的 UI 逻辑。
 // ==============================
 class ImGuiManager {
@@ -91,3 +91,4 @@ private:
     void CreateRenderTarget();                      // 从交换链后台缓冲区创建渲染目标视图
     void CleanupRenderTarget();                     // 释放渲染目标视图
 };
+

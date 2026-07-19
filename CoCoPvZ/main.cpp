@@ -1,12 +1,12 @@
 // ==============================
-// 应用入口：植物大战僵尸阳光修改器
+// 应用入口：CoCo 游戏修改器
 // 功能：使用 Dear ImGui + DirectX 11 创建一个全屏透明覆盖层，
 // 附加到 PlantsVsZombies.exe 进程，提供阳光修改、CD 格禁用、
 // 自动采集阳光等功能。Home 键显示界面，End 键隐藏。
 // ==============================
 
-#include "core/ImGuiManager.h"
-#include "core/MemoryManager.h"
+#include "../core/ImGuiManager.h"
+#include "../core/MemoryManager.h"
 #include <tchar.h>
 
 // Global instances
@@ -25,8 +25,8 @@ void CleanupApplication(HINSTANCE hInstance, HWND hwnd);
 
 namespace
 {
-    constexpr LPCTSTR kWindowClassName = _T("ImGui Example");
-    constexpr LPCTSTR kWindowTitle = _T("Plants vs Zombies Sunshine Modifier");
+    constexpr LPCTSTR kWindowClassName = _T("CoCoOverlay");
+    constexpr LPCTSTR kWindowTitle = _T("CoCo - Game Modifier Tool");
 }
 
 // ==============================
@@ -228,3 +228,6 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     }
     return ::DefWindowProc(hWnd, msg, wParam, lParam);
 }
+
+
+

@@ -1,23 +1,39 @@
 # ==============================
 # Root CMakeLists.txt
-# Project: CoCo - Game Modifier Tool
+# Project: CoCo — Game Modifier Tool
 # ==============================
 
 cmake_minimum_required(VERSION 3.10)
 project(CoCo VERSION 1.0)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
 add_compile_options("$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 
-# Shared third-party library
+# ============================================================
+# Layer 1: External dependencies
+# ============================================================
 add_subdirectory(third_party/imgui)
 
-# Shared core library (ImGui manager + memory operations)
+# ============================================================
+# Layer 2: Core — infrastructure (pure, no game logic)
+#   D3D11Device / ImGuiRenderer / Process / Memory
+# ============================================================
 add_subdirectory(core)
 
-# Game-specific executables
-add_subdirectory(CoCoPvZ)
-# add_subdirectory(CoCoFPS)    # Placeholder: uncomment when FPS game is added
-# add_subdirectory(CoCoRPG)    # Placeholder: uncomment when RPG game is added
+# ============================================================
+# Layer 3: Framework — game-modifier application framework
+#   GameFeature interface / OverlayApp / LogBuffer
+# ============================================================
+add_subdirectory(framework)
+
+# ============================================================
+# Layer 4: Games — concrete feature implementations
+#   Each game is an executable linking CoCoFramework.
+# ============================================================
+add_subdirectory(games/PvZ)
+
+# Placeholder games (uncomment when ready):
+# add_subdirectory(games/FPS)
+# add_subdirectory(games/RPG)

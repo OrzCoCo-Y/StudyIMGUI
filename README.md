@@ -1,43 +1,64 @@
-# NICOYI — 植物大战僵尸阳光修改器
+# NICOYI — Game Modifier Tool
 
-基于 Dear ImGui + DirectX 11 的 Windows 游戏辅助工具。
+A generic, extensible Windows game modifier overlay built with **Dear ImGui + DirectX 11**.
 
-## 项目结构
+Designed as a universal framework: the same 6-tab menu structure is reused across
+different game profiles (PvZ/TD, FPS, RPG, etc.). Automatically detects the target
+process and switches feature sets.
+
+## Project Structure
 
 ```
-├── CMakeLists.txt              # 顶层 CMake 配置
-├── src/                        # 应用源码
+├── CMakeLists.txt              # Root CMake config
+├── .clang-format               # Code style (Microsoft, Allman braces)
+├── .gitignore                  # Ignored files
+│
+├── src/                        # Application source
 │   ├── CMakeLists.txt
-│   ├── main.cpp                # 应用入口与 Win32 消息循环
-│   └── core/                   # 核心业务模块
-│       ├── ImGuiManager.h/cpp  # ImGui 渲染管线与 UI 管理
-│       └── MemoryManager.h/cpp # 游戏进程内存操作
-├── third_party/                # 第三方依赖
+│   ├── main.cpp                # Entry point + Win32 message loop
+│   └── core/                   # Core modules
+│       ├── ImGuiManager.h/cpp  # ImGui render pipeline & UI
+│       └── MemoryManager.h/cpp # Process memory operations
+│
+├── third_party/                # Third-party dependencies
 │   └── imgui/                  # Dear ImGui (v1.91.6)
-│       ├── CMakeLists.txt      # 独立静态库构建
-│       ├── imgui.h/cpp ...
-│       └── backends/           # Win32 + DX11 后端
-├── cmake/                      # CMake 辅助脚本（预留）
-├── docs/                       # 文档（预留）
-└── scripts/                    # 构建/工具脚本（预留）
+│
+├── docs/                       # Design & architecture docs
+│   └── menu-framework.md       # Universal menu framework spec
+│
+├── designs/                    # UI mockups & design assets
+├── cmake/                      # CMake helper scripts
+└── scripts/                    # Build & utility scripts
 ```
 
-## 构建方式
+## Menu Framework
 
-### 前置条件
-- Visual Studio 2022+（含 C++ 桌面开发工作负载）
+The tool uses a **6-tab universal menu**. See `docs/menu-framework.md` for details.
+
+```
+[ Visual ]  [ Assist ]  [ Numeric ]  [ Process ]  [ Settings ]  [ Developer ]
+```
+
+| Tab | Purpose |
+|-----|---------|
+| **Visual** | Overlay draw elements (ESP, boxes, health bars, FOV circles) |
+| **Assist** | Toggle behaviors & automation (no CD, auto collect, trigger bot) |
+| **Numeric** | Value editors (HP, gold, ammo, sunshine) |
+| **Process** | Process attach/detach & runtime info |
+| **Settings** | Tool configuration (hotkeys, theme, language) |
+| **Developer** | Memory viewer, pointer resolver, scripting, log |
+
+## Build
+
+### Prerequisites
+- Visual Studio 2022+ (with C++ desktop workload)
 - CMake 3.10+
 
-### 步骤
-1. 用 Visual Studio 打开项目根目录
-2. 选择 `x64-Debug` 配置
-3. 生成 → 全部生成
-4. 运行前确保 `PlantsVsZombies.exe` 已启动
+### Steps
+1. Open the project root in Visual Studio
+2. Select `x64-Debug` configuration
+3. Build > Build All
 
-## 功能
-
-- 全屏覆盖层窗口（Home 显示 / End 隐藏）
-- 阳光值读取与修改
-- CD 格禁用（1/2/3 格独立开关）
-- 自动采集阳光
-- 开发者日志面板
+### Hotkeys
+- **HOME** — Show overlay
+- **END**  — Hide overlay

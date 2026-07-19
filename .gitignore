@@ -1,8 +1,9 @@
 # ==============================
-# CMake 生成文件
+# Build Artifacts
 # ==============================
 build/
 cmake-build-*/
+out/
 CMakeFiles/
 CMakeCache.txt
 compile_commands.json
@@ -12,7 +13,7 @@ install_manifest.txt
 Makefile
 
 # ==============================
-# Visual Studio / Cursor 本地文件
+# IDE & Editor Files
 # ==============================
 .vs/
 .vscode/
@@ -27,7 +28,7 @@ Makefile
 *.vcxproj.user
 
 # ==============================
-# 编译中间产物与可执行文件
+# Compiled Objects & Binaries
 # ==============================
 *.obj
 *.o
@@ -51,20 +52,9 @@ Makefile
 *.app
 
 # ==============================
-# 其他临时文件
+# Temp & Cache Files
 # ==============================
 *.log
 *.tmp
 *.cache
 *.d
-
-
-# ==============================
-# 构建输出目录（Visual Studio CMake）
-# ==============================
-out/
-
-# ==============================
-# 临时脚本
-# ==============================
-*.ps1

@@ -8,8 +8,11 @@
 
 // ==============================
 // 内存管理器
+// Encapsulates process attach/detach and memory R/W
 // 封装目标游戏进程的附加、分离与内存读写操作。
+// Provides pointer chain resolution, template R/W interfaces
 // 提供指针链解析、泛型模板读写等通用接口，
+// and game-specific features (sunshine, CD slot, auto collect)
 // 以及阳光、CD 格、自动采集等专用功能方法。
 // ==============================
 class MemoryManager {
@@ -17,7 +20,9 @@ private:
     HANDLE m_processHandle = nullptr;  // 目标进程句柄（OpenProcess 返回）
     DWORD m_processId = 0;             // 目标进程 PID
 
+    // Sunshine Pointer Chain Constants
     // --- 阳光值指针链常量 ---
+    // Sunshine address: [[006A9EC0] + 0x768] + 0x5560
     // 阳光地址: [[006A9EC0] + 0x768] + 0x5560
     const DWORD kBaseAddress = 0x006A9EC0;  // 一级基地址
     const DWORD kOffset1 = 0x768;            // 一级偏移
@@ -26,29 +31,38 @@ private:
 public:
     ~MemoryManager();
 
+    // Process Lifecycle
     // --- 进程生命周期 ---
 
+    // Find and attach target process by name
     // 按进程名查找并附加目标进程
     bool AttachProcess(const std::wstring& processName);
+    // Close handle and reset state
     // 关闭进程句柄，重置状态
     void DetachProcess();
+    // Whether currently attached to target
     // 当前是否已附加到目标进程
     bool IsAttached() const;
 
     // --- 专用功能：阳光修改 ---
 
+    // Read current sunshine from game memory
     // 从游戏内存读取当前阳光值
     bool ReadSunshine(int& sunshine);
+    // Write sunshine value to game memory
     // 向游戏内存写入指定阳光值
     bool WriteSunshine(int sunshine);
 
     // --- 专用功能：CD 格修改 ---
 
+    // Write CD status for slot 1/2/3
     // 写入指定格位的 CD 状态（slot: 1/2/3）
     bool WriteCDSlot(int slot, bool enabled);
 
+    // Auto collect sunshine
     // --- 专用功能：自动采集阳光 ---
 
+    // Call game function via remote thread to collect sunshine
     // 通过远程线程调用游戏内部函数采集阳光
     bool CollectSunshine();
 
@@ -133,10 +147,13 @@ public:
     }
 
 private:
+    // Target process PID
     // 遍历系统进程快照，按名称查找目标进程 PID
     DWORD GetProcessIdByName(const std::wstring& processName);
+    // Read memory from target address
     // 从目标进程的指定地址读取内存
     bool ReadMemory(uintptr_t address, void* buffer, SIZE_T size);
+    // Write memory to target address
     // 向目标进程的指定地址写入内存
     bool WriteMemory(uintptr_t address, const void* buffer, SIZE_T size);
 };

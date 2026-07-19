@@ -9,10 +9,12 @@
 #include "core/MemoryManager.h"
 #include <tchar.h>
 
+// Global instances
 // 全局管理器实例
 ImGuiManager g_imguiManager;
 MemoryManager g_memoryManager;
 
+// Forward declarations
 // 前置声明
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 bool PumpWindowMessages(bool& shouldQuit);

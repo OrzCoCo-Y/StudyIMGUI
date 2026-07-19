@@ -2,9 +2,11 @@
 #include "core/MemoryManager.h"
 #include <time.h>
 
+// Global instance declaration
 // 全局实例声明
 extern MemoryManager g_memoryManager;
 
+// Forward declaration from imgui_impl_win32.cpp
 // 前置声明：来自 imgui_impl_win32.cpp 的消息处理函数
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 

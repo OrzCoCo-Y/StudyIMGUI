@@ -1,3 +1,4 @@
+# Style: Microsoft variant with 4-space indent, Allman braces, 120 column limit
 BasedOnStyle: Microsoft
 IndentWidth: 4
 UseTab: Never

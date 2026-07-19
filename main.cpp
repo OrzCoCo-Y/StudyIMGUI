@@ -1,16 +1,19 @@
+// ==============================
+// 应用入口：植物大战僵尸阳光修改器
+// 功能：使用 Dear ImGui + DirectX 11 创建一个全屏透明覆盖层，
+// 附加到 PlantsVsZombies.exe 进程，提供阳光修改、CD 格禁用、
+// 自动采集阳光等功能。Home 键显示界面，End 键隐藏。
+// ==============================
+
 #include "ImGuiManager.h"
 #include "MemoryManager.h"
 #include <tchar.h>
 
-// ==============================
 // 全局管理器实例
-// ==============================
 ImGuiManager g_imguiManager;
 MemoryManager g_memoryManager;
 
-// ==============================
 // 前置声明
-// ==============================
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 bool PumpWindowMessages(bool& shouldQuit);
 HWND CreateOverlayWindow(HINSTANCE hInstance);
@@ -51,21 +54,26 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
     return 0;
 }
 
+// ==============================
+// 创建全屏透明覆盖层窗口
+// ==============================
 HWND CreateOverlayWindow(HINSTANCE hInstance)
 {
-    // 注册无边框覆盖层窗口类。
+    // 注册无边框覆盖层窗口类
     WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_CLASSDC, WndProc, 0L, 0L, hInstance, NULL, NULL, NULL, NULL, kWindowClassName, NULL };
     if (!::RegisterClassEx(&wc))
     {
         return NULL;
     }
 
-    // 创建全屏分层弹出窗口（可交互）。
+    // 创建全屏分层弹出窗口（可交互）
+    // WS_EX_LAYERED 启用分层窗口，配合 LWA_COLORKEY 将黑色区域设为透明
+    // 注意不加 WS_EX_TRANSPARENT，确保 ImGui 可正常接收鼠标键盘事件
     HWND hwnd = ::CreateWindowEx(
-        WS_EX_LAYERED,  // 不加 WS_EX_TRANSPARENT，确保 ImGui 可接收鼠标键盘事件。
+        WS_EX_LAYERED,
         wc.lpszClassName,
         kWindowTitle,
-        WS_POPUP,  // 无边框、无标题栏。
+        WS_POPUP,
         0, 0,
         GetSystemMetrics(SM_CXSCREEN),
         GetSystemMetrics(SM_CYSCREEN),
@@ -77,47 +85,50 @@ HWND CreateOverlayWindow(HINSTANCE hInstance)
         return NULL;
     }
 
-    // 将黑色区域视为透明。
+    // 将黑色 (0, 0, 0) 区域视为透明，使覆盖层下方的游戏画面可见
     ::SetLayeredWindowAttributes(hwnd, RGB(0, 0, 0), 0, LWA_COLORKEY);
     return hwnd;
 }
 
+// ==============================
+// 初始化 ImGui 渲染后段并附加游戏进程
+// ==============================
 bool InitializeApplication(HWND hwnd)
 {
-    // 初始化 ImGui 图形后端与上下文。
+    // 初始化 ImGui 图形后端与上下文
     if (!g_imguiManager.Initialize(hwnd))
     {
         return false;
     }
 
-    // 启动时尝试附加目标进程（失败可在 UI 中重连）。
+    // 启动时尝试附加目标进程（失败可在 UI 中手动重连）
     g_memoryManager.AttachProcess(L"PlantsVsZombies.exe");
     return true;
 }
 
+// ==============================
+// 主消息循环
+// ==============================
 void RunMainLoop(HWND hwnd)
 {
-    // ==============================
     // 运行时状态
-    // ==============================
     int sunshine = 0;
-    int pendingSunshine = 0;  // UI 输入值（用于写入阳光）。
+    int pendingSunshine = 0;  // UI 输入值（用于写入阳光）
     bool homeKeyPressed = false;
     bool endKeyPressed = false;
 
-    // ==============================
     // 主循环：事件处理 -> 数据同步 -> UI 绘制
-    // ==============================
     bool done = false;
     while (!done)
     {
-        // 1) 处理系统消息（输入、尺寸变化、退出等）。
+        // 1) 处理系统消息（输入、尺寸变化、退出等）
         if (!PumpWindowMessages(done) || done)
         {
             break;
         }
 
-        // Home 显示窗口，End 隐藏窗口；使用按下沿触发避免长按反复执行。
+        // 2) 热键处理：Home 显示窗口，End 隐藏窗口
+        // 使用按下沿触发，避免长按反复执行
         bool isHomeDown = (::GetAsyncKeyState(VK_HOME) & 0x8000) != 0;
         bool isEndDown = (::GetAsyncKeyState(VK_END) & 0x8000) != 0;
         if (isHomeDown && !homeKeyPressed)
@@ -131,28 +142,28 @@ void RunMainLoop(HWND hwnd)
         homeKeyPressed = isHomeDown;
         endKeyPressed = isEndDown;
 
-        // 2) 开始新的 ImGui 帧。
+        // 3) 开始新的 ImGui 帧
         g_imguiManager.NewFrame();
 
-        // 3) 从游戏进程同步当前阳光值。
+        // 4) 从游戏进程同步当前阳光值
         if (g_memoryManager.IsAttached())
         {
             g_memoryManager.ReadSunshine(sunshine);
         }
 
-        // 4) 构建功能 UI（阳光编辑、CD 开关、日志等）。
+        // 5) 构建功能 UI（阳光编辑、CD 开关、日志等）
         g_imguiManager.RenderSunshineWindow(&sunshine, pendingSunshine);
 
-        // 5) 提交渲染。
+        // 6) 提交渲染
         g_imguiManager.Render();
     }
 }
 
+// ==============================
+// 清理资源
+// ==============================
 void CleanupApplication(HINSTANCE hInstance, HWND hwnd)
 {
-    // ==============================
-    // 资源清理
-    // ==============================
     g_imguiManager.Shutdown();
     g_memoryManager.DetachProcess();
 
@@ -163,6 +174,9 @@ void CleanupApplication(HINSTANCE hInstance, HWND hwnd)
     ::UnregisterClass(kWindowClassName, hInstance);
 }
 
+// ==============================
+// 窗口消息泵
+// ==============================
 bool PumpWindowMessages(bool& shouldQuit)
 {
     MSG msg;
@@ -179,10 +193,12 @@ bool PumpWindowMessages(bool& shouldQuit)
     return true;
 }
 
-// Win32 消息处理函数
+// ==============================
+// Win32 窗口过程
+// ==============================
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-    // 优先交给 ImGui 处理输入消息。
+    // 优先交给 ImGui 后端处理输入消息（鼠标、键盘、滚轮等）
     MSG message;
     message.hwnd = hWnd;
     message.message = msg;
@@ -197,12 +213,12 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     switch (msg)
     {
     case WM_SIZE:
-        // 窗口尺寸变化时重建渲染目标资源。
+        // 窗口尺寸变化时重建 D3D11 渲染目标资源
         g_imguiManager.HandleResize(wParam, lParam);
         return 0;
     case WM_SYSCOMMAND:
-        if ((wParam & 0xfff0) == SC_KEYMENU) // 屏蔽 ALT 激活系统菜单行为。
-            return 0;
+        if ((wParam & 0xfff0) == SC_KEYMENU)
+            return 0;  // 屏蔽 Alt 激活系统菜单的行为
         break;
     case WM_DESTROY:
         ::PostQuitMessage(0);

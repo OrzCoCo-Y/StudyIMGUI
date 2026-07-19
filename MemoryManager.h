@@ -6,26 +6,54 @@
 #include <vector>
 #include <type_traits>
 
+// ==============================
+// 内存管理器
+// 封装目标游戏进程的附加、分离与内存读写操作。
+// 提供指针链解析、泛型模板读写等通用接口，
+// 以及阳光、CD 格、自动采集等专用功能方法。
+// ==============================
 class MemoryManager {
 private:
-    HANDLE m_processHandle = nullptr;
-    DWORD m_processId = 0;
-    const DWORD kBaseAddress = 0x006A9EC0;
-    const DWORD kOffset1 = 0x768;
-    const DWORD kOffset2 = 0x5560;
+    HANDLE m_processHandle = nullptr;  // 目标进程句柄（OpenProcess 返回）
+    DWORD m_processId = 0;             // 目标进程 PID
+
+    // --- 阳光值指针链常量 ---
+    // 阳光地址: [[006A9EC0] + 0x768] + 0x5560
+    const DWORD kBaseAddress = 0x006A9EC0;  // 一级基地址
+    const DWORD kOffset1 = 0x768;            // 一级偏移
+    const DWORD kOffset2 = 0x5560;           // 二级偏移（阳光最终值）
 
 public:
     ~MemoryManager();
+
+    // --- 进程生命周期 ---
+
+    // 按进程名查找并附加目标进程
     bool AttachProcess(const std::wstring& processName);
+    // 关闭进程句柄，重置状态
     void DetachProcess();
-    bool ReadSunshine(int& sunshine);
-    bool WriteSunshine(int sunshine);
+    // 当前是否已附加到目标进程
     bool IsAttached() const;
+
+    // --- 专用功能：阳光修改 ---
+
+    // 从游戏内存读取当前阳光值
+    bool ReadSunshine(int& sunshine);
+    // 向游戏内存写入指定阳光值
+    bool WriteSunshine(int sunshine);
+
+    // --- 专用功能：CD 格修改 ---
+
+    // 写入指定格位的 CD 状态（slot: 1/2/3）
     bool WriteCDSlot(int slot, bool enabled);
+
+    // --- 专用功能：自动采集阳光 ---
+
+    // 通过远程线程调用游戏内部函数采集阳光
     bool CollectSunshine();
 
-    // ==================== 通用指针链读取方法 ====================
-    
+    // ==================== 通用指针链操作方法 ====================
+
     // 计算指针链最终地址
     // baseAddress: 基地址
     // offsets: 偏移量数组，例如 {0x768, 0x5560} 表示 [[base] + 0x768] + 0x5560
@@ -105,7 +133,10 @@ public:
     }
 
 private:
+    // 遍历系统进程快照，按名称查找目标进程 PID
     DWORD GetProcessIdByName(const std::wstring& processName);
+    // 从目标进程的指定地址读取内存
     bool ReadMemory(uintptr_t address, void* buffer, SIZE_T size);
+    // 向目标进程的指定地址写入内存
     bool WriteMemory(uintptr_t address, const void* buffer, SIZE_T size);
 };

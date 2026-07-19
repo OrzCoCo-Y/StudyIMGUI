@@ -8,14 +8,20 @@ extern MemoryManager g_memoryManager;
 // 前置声明：来自 imgui_impl_win32.cpp 的消息处理函数
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
+// ==============================
+// 初始化与销毁
+// ==============================
+
 bool ImGuiManager::Initialize(HWND hWnd) {
     m_hwnd = hWnd;
-    
+
+    // 1) 创建 D3D11 设备、交换链与渲染目标视图
     if (!CreateDeviceD3D(m_hwnd)) {
         CleanupDeviceD3D();
         return false;
     }
 
+    // 2) 创建 ImGui 上下文并初始化中文渲染支持
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO();
@@ -23,8 +29,10 @@ bool ImGuiManager::Initialize(HWND hWnd) {
     // 加载中文字体，避免界面中文出现乱码
     io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\simsun.ttc", 18.0f, NULL, io.Fonts->GetGlyphRangesChineseFull());
 
+    // 3) 设置深色主题风格
     ImGui::StyleColorsDark();
 
+    // 4) 初始化 Win32 + DX11 渲染后端
     ImGui_ImplWin32_Init(m_hwnd);
     ImGui_ImplDX11_Init(m_pd3dDevice, m_pd3dDeviceContext);
 
@@ -32,6 +40,7 @@ bool ImGuiManager::Initialize(HWND hWnd) {
 }
 
 void ImGuiManager::Shutdown() {
+    // 按后端初始化的逆序依次关闭
     ImGui_ImplDX11_Shutdown();
     ImGui_ImplWin32_Shutdown();
     ImGui::DestroyContext();
@@ -39,7 +48,12 @@ void ImGuiManager::Shutdown() {
     CleanupDeviceD3D();
 }
 
+// ==============================
+// 帧循环
+// ==============================
+
 void ImGuiManager::NewFrame() {
+    // 依次调用各层 NewFrame，顺序固定
     ImGui_ImplDX11_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
@@ -47,21 +61,32 @@ void ImGuiManager::NewFrame() {
 
 void ImGuiManager::Render() {
     ImGui::Render();
-    
+
+    // 清除为全透明，使覆盖层黑色区域穿透显示游戏画面
     const float clear_color_with_alpha[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
     m_pd3dDeviceContext->OMSetRenderTargets(1, &m_mainRenderTargetView, nullptr);
     m_pd3dDeviceContext->ClearRenderTargetView(m_mainRenderTargetView, clear_color_with_alpha);
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 
+    // 带垂直同步的交换链呈现
     m_pSwapChain->Present(1, 0);
 }
 
+// ==============================
+// 消息处理
+// ==============================
+
 bool ImGuiManager::ProcessMessage(MSG* msg) {
+    // 将 Win32 消息委托给 imgui_impl_win32 的后端处理器
     if (ImGui_ImplWin32_WndProcHandler(m_hwnd, msg->message, msg->wParam, msg->lParam)) {
         return true;
     }
     return false;
 }
+
+// ==============================
+// 日志系统
+// ==============================
 
 void ImGuiManager::AddLog(const std::string& message) {
     // 添加时间戳
@@ -70,10 +95,10 @@ void ImGuiManager::AddLog(const std::string& message) {
     localtime_s(&localTime, &now);
     char timeStr[20];
     strftime(timeStr, sizeof(timeStr), "%Y-%m-%d %H:%M:%S", &localTime);
-    
+
     std::string logEntry = std::string("[") + timeStr + "] " + message;
     m_logMessages.push_back(logEntry);
-    
+
     // 限制日志数量，防止内存占用过大
     if (m_logMessages.size() > 100) {
         m_logMessages.erase(m_logMessages.begin());
@@ -86,7 +111,7 @@ void ImGuiManager::RenderLogPanel() {
         m_logMessages.clear();
         AddLog("日志已清空");
     }
-    
+
     ImGui::SameLine();
     if (ImGui::Button("保存日志")) {
         if (SaveLogsToFile("log.txt")) {
@@ -95,35 +120,52 @@ void ImGuiManager::RenderLogPanel() {
             AddLog("保存日志失败");
         }
     }
-    
+
     ImGui::Separator();
-    
-    // 日志显示区域采用自适应高度，并设置最小可视高度，避免窗口较小时日志被完全挤压。
+
+    // 日志显示区域采用自适应高度，并设置最小可视高度，避免窗口较小时日志被完全挤压
     float availableHeight = ImGui::GetContentRegionAvail().y;
     float logPanelHeight = availableHeight > 140.0f ? availableHeight : 140.0f;
     ImGui::BeginChild("LogScroll", ImVec2(0, logPanelHeight), true, ImGuiWindowFlags_HorizontalScrollbar);
     for (size_t i = 0; i < m_logMessages.size(); i++) {
         ImGui::TextUnformatted(m_logMessages[i].c_str());
     }
-    
+
     // 自动滚动到底部
     if (ImGui::GetScrollY() >= ImGui::GetScrollMaxY()) {
         ImGui::SetScrollHereY(1.0f);
     }
-    
+
     ImGui::EndChild();
 }
 
+bool ImGuiManager::SaveLogsToFile(const char* path) {
+    FILE* file = nullptr;
+    errno_t err = fopen_s(&file, path, "w");
+    if (err != 0 || file == nullptr) {
+        return false;
+    }
+
+    for (size_t i = 0; i < m_logMessages.size(); i++) {
+        fprintf(file, "%s\n", m_logMessages[i].c_str());
+    }
+    fclose(file);
+    return true;
+}
+
+// ==============================
+// 主功能窗口
+// ==============================
+
 void ImGuiManager::RenderSunshineWindow(int* sunshine, int& pendingSunshine) {
-    // 设置窗口大小和位置
+    // 设置窗口大小和位置（仅在首次使用时生效）
     ImGui::SetNextWindowSize(ImVec2(420, 430), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowPos(ImVec2(100, 100), ImGuiCond_FirstUseEver);
-    
+
     // 创建主功能窗口
     static bool isOpen = true;
-    // 行业惯例：主工具窗口允许用户按需拉伸，便于容纳日志等调试信息。
     ImGui::Begin("植物大战僵尸阳光修改器", &isOpen);
-    
+
     // 点击窗口关闭按钮后退出程序
     if (!isOpen) {
         ::PostQuitMessage(0);
@@ -135,8 +177,9 @@ void ImGuiManager::RenderSunshineWindow(int* sunshine, int& pendingSunshine) {
     ImGui::PopFont();
     ImGui::Separator();
 
+    // 标签页："概览" 和 "修改"
     if (ImGui::BeginTabBar("MainTabs")) {
-        if (ImGui::BeginTabItem("绘制")) {
+        if (ImGui::BeginTabItem("概览")) {
             RenderOverviewTab(*sunshine);
             ImGui::EndTabItem();
         }
@@ -148,10 +191,10 @@ void ImGuiManager::RenderSunshineWindow(int* sunshine, int& pendingSunshine) {
         ImGui::EndTabBar();
     }
 
-    // 持续功能按当前开关状态每帧生效，不受标签页切换影响。
+    // 持续功能按当前开关状态每帧生效，不受标签页切换影响
     ApplyContinuousFeatures();
 
-    // 大项目常见做法：业务操作与开发日志分区，日志作为可折叠调试面板默认收起。
+    // 日志作为可折叠调试面板，默认收起
     ImGui::Separator();
     if (ImGui::CollapsingHeader("开发者日志"))
     {
@@ -162,6 +205,10 @@ void ImGuiManager::RenderSunshineWindow(int* sunshine, int& pendingSunshine) {
     ImGui::End();
 }
 
+// ==============================
+// 标签页：概览
+// ==============================
+
 void ImGuiManager::RenderOverviewTab(const int& sunshine) {
     ImGui::Text("当前阳光值:");
     ImGui::SameLine();
@@ -170,11 +217,19 @@ void ImGuiManager::RenderOverviewTab(const int& sunshine) {
     RenderProcessStatus();
 }
 
+// ==============================
+// 标签页：修改
+// ==============================
+
 void ImGuiManager::RenderModifyTab(const int& sunshine, int& pendingSunshine) {
     RenderSunshineControls(sunshine, pendingSunshine);
     ImGui::Separator();
     RenderFeatureToggles();
 }
+
+// ==============================
+// 阳光修改控件
+// ==============================
 
 void ImGuiManager::RenderSunshineControls(const int& sunshine, int& pendingSunshine) {
     (void)sunshine;
@@ -198,19 +253,9 @@ void ImGuiManager::RenderSunshineControls(const int& sunshine, int& pendingSunsh
     ImGui::PopStyleColor(3);
 }
 
-bool ImGuiManager::SaveLogsToFile(const char* path) {
-    FILE* file = nullptr;
-    errno_t err = fopen_s(&file, path, "w");
-    if (err != 0 || file == nullptr) {
-        return false;
-    }
-
-    for (size_t i = 0; i < m_logMessages.size(); i++) {
-        fprintf(file, "%s\n", m_logMessages[i].c_str());
-    }
-    fclose(file);
-    return true;
-}
+// ==============================
+// 功能开关（CD 格 + 自动采集阳光）
+// ==============================
 
 void ImGuiManager::RenderFeatureToggles() {
     // CD 格功能开关
@@ -238,12 +283,17 @@ void ImGuiManager::RenderFeatureToggles() {
     ImGui::PopStyleColor(2);
 }
 
+// ==============================
+// 每帧持续功能（类似 CE 锁定）
+// ==============================
+
 void ImGuiManager::ApplyContinuousFeatures() {
-    // 持续应用功能状态（类似 CE 锁定）
+    // 未连接到进程时跳过所有写入操作
     if (!g_memoryManager.IsAttached()) {
         return;
     }
 
+    // 每帧根据开关状态持续写入，确保效果不因游戏逻辑重置而消失
     if (m_cdSlot1Enabled) {
         g_memoryManager.WriteCDSlot(1, true);
     }
@@ -258,8 +308,11 @@ void ImGuiManager::ApplyContinuousFeatures() {
     }
 }
 
+// ==============================
+// 进程状态
+// ==============================
+
 void ImGuiManager::RenderProcessStatus() {
-    // 进程状态
     ImGui::Text("进程状态:");
     if (g_memoryManager.IsAttached()) {
         ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "已连接到植物大战僵尸");
@@ -272,8 +325,13 @@ void ImGuiManager::RenderProcessStatus() {
     }
 }
 
+// ==============================
+// D3D11 设备管理
+// ==============================
+
 void ImGuiManager::HandleResize(WPARAM wParam, LPARAM lParam) {
     if (m_pd3dDevice != nullptr && wParam != SIZE_MINIMIZED) {
+        // 窗口尺寸变化时释放旧资源后按新尺寸重建
         CleanupRenderTarget();
         m_pSwapChain->ResizeBuffers(0, (UINT)LOWORD(lParam), (UINT)HIWORD(lParam), DXGI_FORMAT_UNKNOWN, 0);
         CreateRenderTarget();
@@ -281,6 +339,7 @@ void ImGuiManager::HandleResize(WPARAM wParam, LPARAM lParam) {
 }
 
 bool ImGuiManager::CreateDeviceD3D(HWND hWnd) {
+    // 配置交换链描述
     DXGI_SWAP_CHAIN_DESC sd;
     ZeroMemory(&sd, sizeof(sd));
     sd.BufferCount = 2;
@@ -297,6 +356,7 @@ bool ImGuiManager::CreateDeviceD3D(HWND hWnd) {
     sd.Windowed = TRUE;
     sd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
 
+    // 尝试硬件加速，回退到 WARP 软件渲染
     UINT createDeviceFlags = 0;
     D3D_FEATURE_LEVEL featureLevel;
     const D3D_FEATURE_LEVEL featureLevelArray[2] = { D3D_FEATURE_LEVEL_11_0, D3D_FEATURE_LEVEL_10_0, };
@@ -311,6 +371,7 @@ bool ImGuiManager::CreateDeviceD3D(HWND hWnd) {
 }
 
 void ImGuiManager::CleanupDeviceD3D() {
+    // 按依赖逆序释放 D3D11 资源
     CleanupRenderTarget();
     if (m_pSwapChain) {
         m_pSwapChain->Release(); m_pSwapChain = nullptr;

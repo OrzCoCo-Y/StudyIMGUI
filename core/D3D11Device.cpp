@@ -55,6 +55,7 @@ void D3D11Device::Destroy() {
 
 bool D3D11Device::Resize(UINT width, UINT height) {
     if (!m_device || !m_swapChain) return false;
+    if (width == 0 || height == 0) return true;  // 最小化时不销毁渲染目标，恢复后再重建
     DestroyRenderTarget();
     HRESULT hr = m_swapChain->ResizeBuffers(0, width, height,
                                             DXGI_FORMAT_UNKNOWN, 0);

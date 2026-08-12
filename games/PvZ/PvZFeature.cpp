@@ -3,6 +3,7 @@
 
 #include "core/Memory.h"
 #include "core/Core.h"
+#include "core/ImGuiRenderer.h"
 
 #include "imgui.h"
 
@@ -25,9 +26,9 @@ constexpr ImVec4 kWindowBg   (0.102f, 0.102f, 0.141f, 1.0f);  // #1a1a24
 constexpr ImVec4 kSurfaceBg  (0.133f, 0.133f, 0.180f, 1.0f);  // #22222e
 constexpr ImVec4 kHoverBg    (0.173f, 0.173f, 0.227f, 1.0f);  // #2c2c3a
 constexpr ImVec4 kActiveBg   (0.208f, 0.208f, 0.290f, 1.0f);  // #35354a
-constexpr ImVec4 kBorder     (0.180f, 0.180f, 0.243f, 1.0f);  // #2e2e3e
-constexpr ImVec4 kText       (0.831f, 0.831f, 0.894f, 1.0f);  // #d4d4e4
-constexpr ImVec4 kTextDim    (0.424f, 0.424f, 0.518f, 1.0f);  // #6c6c84
+constexpr ImVec4 kBorder     (0.255f, 0.263f, 0.345f, 1.0f);  // #414358
+constexpr ImVec4 kText       (0.910f, 0.918f, 0.965f, 1.0f);  // #e8eaf6
+constexpr ImVec4 kTextDim    (0.635f, 0.651f, 0.733f, 1.0f);  // #a2a6bb
 constexpr ImVec4 kTextBright (0.941f, 0.941f, 1.000f, 1.0f);  // #f0f0ff
 constexpr ImVec4 kAccent     (0.424f, 0.549f, 1.000f, 1.0f);  // #6c8cff
 constexpr ImVec4 kGreen      (0.435f, 0.812f, 0.592f, 1.0f);  // #6fcf97
@@ -41,6 +42,42 @@ const ImVec4 kActiveAccent(kAccent.x, kAccent.y, kAccent.z, 0.24f);
 ImU32 ToU32(const ImVec4& color) {
     return ImGui::ColorConvertFloat4ToU32(color);
 }
+
+// ==============================
+// Font helpers — shared atlas from ImGuiRenderer
+// 字体辅助 — 与 ImGuiRenderer 共享字体图集
+// ==============================
+
+ImFont* UiFont() {
+    return ImGuiRenderer::Instance() ? ImGuiRenderer::Instance()->FontUi() : nullptr;
+}
+ImFont* BodyFont() {
+    return ImGuiRenderer::Instance() ? ImGuiRenderer::Instance()->FontBody() : nullptr;
+}
+ImFont* TinyFont() {
+    return ImGuiRenderer::Instance() ? ImGuiRenderer::Instance()->FontTiny() : nullptr;
+}
+ImFont* MicroFont() {
+    return ImGuiRenderer::Instance() ? ImGuiRenderer::Instance()->FontMicro() : nullptr;
+}
+ImFont* SmallFont() {
+    return ImGuiRenderer::Instance() ? ImGuiRenderer::Instance()->FontSmall() : nullptr;
+}
+ImFont* MonoFont() {
+    return ImGuiRenderer::Instance() ? ImGuiRenderer::Instance()->FontMono() : nullptr;
+}
+ImFont* TitleFont() {
+    return ImGuiRenderer::Instance() ? ImGuiRenderer::Instance()->FontTitle() : nullptr;
+}
+
+// PushFont with the legacy single-argument behavior (1.92 requires the size).
+void PushBodyFont()  { if (ImFont* f = BodyFont())  ImGui::PushFont(f, f->LegacySize); }
+void PushTinyFont()  { if (ImFont* f = TinyFont())  ImGui::PushFont(f, f->LegacySize); }
+void PushMicroFont() { if (ImFont* f = MicroFont()) ImGui::PushFont(f, f->LegacySize); }
+void PushUiFont()    { if (ImFont* f = UiFont())    ImGui::PushFont(f, f->LegacySize); }
+void PushSmallFont() { if (ImFont* f = SmallFont()) ImGui::PushFont(f, f->LegacySize); }
+void PushMonoFont()  { if (ImFont* f = MonoFont())  ImGui::PushFont(f, f->LegacySize); }
+void PushTitleFont() { if (ImFont* f = TitleFont()) ImGui::PushFont(f, f->LegacySize); }
 
 // ==============================
 // Theme push/pop
@@ -102,6 +139,18 @@ constexpr int kGroupCount[6] = { 4, 4, 4, 3, 3, 4 };
 
 const char* const kTabNames[6] = { "视觉", "辅助", "数值", "进程", "设置", "开发者" };
 
+// BMP symbols render reliably through the merged Segoe UI Symbol fallback.
+const char* const kTabIcons[6] = { "◉", "⚡", "∑", "◎", "⚙", "⌘" };
+
+const char* const kGroupIcons[6][4] = {
+    { "◉", "◈", "◆", "✦" },
+    { "⚔", "➜", "⚡", "★" },
+    { "≡", "◆", "▶", "✚" },
+    { "●", "ℹ", "◫", "" },
+    { "⌨", "◐", "⚙", "" },
+    { "◫", "↗", "✎", "▤" },
+};
+
 const char* const kTabDescs[6] = {
     "游戏画面叠加绘制元素",
     "开关型行为修改 — NoCD / 自动采集",
@@ -117,23 +166,135 @@ const char* const kTabDescs[6] = {
 // ==============================
 
 // Small status chip (已实现 / 待扩展), drawn without interaction
-// 状态小标签，纯展示无交互
+// 状态小标签，纯展示无交互（.row .tag：9px 描边样式）
 void TagChip(const char* text, const ImVec4& color) {
+    PushMicroFont();
     const ImVec2 pos = ImGui::GetCursorScreenPos();
     const ImVec2 textSize = ImGui::CalcTextSize(text);
-    const float padX = 6.0f, padY = 1.0f;
+    const float padX = 5.0f, padY = 1.0f;
+    const ImVec2 size(textSize.x + padX * 2, textSize.y + padY * 2 + 2.0f);
     ImDrawList* dl = ImGui::GetWindowDrawList();
-    dl->AddRectFilled(pos,
-                      ImVec2(pos.x + textSize.x + padX * 2,
-                             pos.y + textSize.y + padY * 2),
-                      ToU32(ImVec4(color.x, color.y, color.z, 0.10f)), 3.0f);
-    dl->AddText(ImVec2(pos.x + padX, pos.y + padY), ToU32(color), text);
-    ImGui::Dummy(ImVec2(textSize.x + padX * 2, textSize.y + padY * 2));
+    dl->AddRectFilled(pos, ImVec2(pos.x + size.x, pos.y + size.y),
+                      ToU32(ImVec4(color.x, color.y, color.z, 0.08f)), 2.0f);
+    dl->AddRect(pos, ImVec2(pos.x + size.x, pos.y + size.y),
+                ToU32(ImVec4(color.x, color.y, color.z, 0.45f)), 2.0f);
+    dl->AddText(ImVec2(pos.x + padX, pos.y + padY + 1.0f), ToU32(color), text);
+    ImGui::Dummy(size);
+    ImGui::PopFont();
+}
+
+// Pane status chip (.pane-st): 已实现 · n/m / 待扩展
+// 面板状态徽章
+void StatusChip(const char* label, const ImVec4& color, int done, int total) {
+    char buf[48];
+    if (done == 0)
+        snprintf(buf, sizeof(buf), "%s", label);
+    else
+        snprintf(buf, sizeof(buf), "%s · %d/%d", label, done, total);
+    PushTinyFont();
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
+    const ImVec2 textSize = ImGui::CalcTextSize(buf);
+    const float padX = 10.0f, padY = 2.0f;
+    const ImVec2 size(textSize.x + padX * 2, textSize.y + padY * 2 + 2.0f);
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    const ImVec4 bg = (done == 0)
+                          ? ImVec4(kTextDim.x, kTextDim.y, kTextDim.z, 0.10f)
+                          : ImVec4(color.x, color.y, color.z, 0.10f);
+    const ImVec4 border = (done == 0) ? kBorder
+                                      : ImVec4(color.x, color.y, color.z, 0.30f);
+    dl->AddRectFilled(pos, ImVec2(pos.x + size.x, pos.y + size.y), ToU32(bg), 3.0f);
+    dl->AddRect(pos, ImVec2(pos.x + size.x, pos.y + size.y), ToU32(border), 3.0f);
+    dl->AddText(ImVec2(pos.x + padX, pos.y + padY + 1.0f), ToU32(color), buf);
+    ImGui::Dummy(size);
+    ImGui::PopFont();
+}
+
+// Dashed rectangle (.empty-pl border)
+// 虚线框
+void DashedRect(ImDrawList* dl, const ImVec2& min, const ImVec2& max,
+                ImU32 color, float thickness = 1.0f) {
+    const float dash = 8.0f, gap = 4.0f;
+    for (float x = min.x; x < max.x; x += dash + gap) {
+        const float x2 = (x + dash < max.x) ? x + dash : max.x;
+        dl->AddLine(ImVec2(x, min.y), ImVec2(x2, min.y), color, thickness);
+        dl->AddLine(ImVec2(x, max.y), ImVec2(x2, max.y), color, thickness);
+    }
+    for (float y = min.y; y < max.y; y += dash + gap) {
+        const float y2 = (y + dash < max.y) ? y + dash : max.y;
+        dl->AddLine(ImVec2(min.x, y), ImVec2(min.x, y2), color, thickness);
+        dl->AddLine(ImVec2(max.x, y), ImVec2(max.x, y2), color, thickness);
+    }
+}
+
+// Empty pane placeholder (.empty-pl): 虚线框 + 图标 + 文案
+// 空面板占位
+void EmptyPlaceholder() {
+    const float avail = ImGui::GetContentRegionAvail().x;
+    const float boxH = 116.0f;
+    const ImVec2 pos = ImGui::GetCursorScreenPos();
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    DashedRect(dl, pos, ImVec2(pos.x + avail, pos.y + boxH),
+               ToU32(ImVec4(kBorder.x, kBorder.y, kBorder.z, 0.85f)));
+    ImGui::Dummy(ImVec2(avail, boxH));
+
+    const float cx = pos.x + avail * 0.5f;
+    const ImU32 dimIcon = ToU32(ImVec4(kTextDim.x, kTextDim.y, kTextDim.z, 0.3f));
+    PushTitleFont();
+    const ImVec2 iconSize = ImGui::CalcTextSize("▤");
+    // 原型 .empty-pl .icon 为 28px：用 AddText 的 font_size 参数按 2x 缩放绘制
+    dl->AddText(ImGui::GetFont(), 28.0f,
+                ImVec2(cx - iconSize.x, pos.y + 24.0f), dimIcon, "▤");
+    ImGui::PopFont();
+    PushBodyFont();
+    const ImVec2 t1 = ImGui::CalcTextSize("暂无功能");
+    dl->AddText(ImVec2(cx - t1.x * 0.5f, pos.y + 60.0f), ToU32(kTextDim), "暂无功能");
+    ImGui::PopFont();
+    PushTinyFont();
+    const ImVec2 t2 = ImGui::CalcTextSize("保留扩展槽位");
+    dl->AddText(ImVec2(cx - t2.x * 0.5f, pos.y + 84.0f),
+                ToU32(ImVec4(kTextDim.x, kTextDim.y, kTextDim.z, 0.6f)),
+                "保留扩展槽位");
+    ImGui::PopFont();
+}
+
+// Language toggle button (.lang-btn)
+// 语言切换按钮
+bool LangButton(const char* label, bool active) {
+    PushTinyFont();
+    const float width = ImGui::CalcTextSize(label).x + 18.0f;
+    ImGui::PushStyleColor(ImGuiCol_Button, active ? kAccent : ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, active ? kHoverAccent : kHoverBg);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, kActiveAccent);
+    ImGui::PushStyleColor(ImGuiCol_Text, active ? kTextBright : kTextDim);
+    ImGui::PushStyleColor(ImGuiCol_Border, kBorder);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 2.0f);
+    const bool clicked = ImGui::Button(label, ImVec2(width, 0));
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor(5);
+    ImGui::PopFont();
+    return clicked;
+}
+
+// Row helpers 内部状态：当前行起始 Y（用于补足 .row min-height 28px）
+static float g_rowStartY = 0.0f;
+
+// Row footer: 补足行高至 28px（原型 .row{min-height:28px}），行间不再额外留白
+// 行尾：补齐 28px 行高，行与行之间无额外间距
+void EndRow() {
+    const float used = ImGui::GetCursorScreenPos().y - g_rowStartY;
+    const float minRow = 28.0f;
+    if (used < minRow)
+        ImGui::Dummy(ImVec2(0, minRow - used));
+    ImGui::PopID();
 }
 
 // Row header: label + status chip, then right-align the control area
 // 行头部：标签 + 状态标签，随后将控件右对齐
 void RowBegin(const char* label, bool implemented, float controlWidth) {
+    g_rowStartY = ImGui::GetCursorScreenPos().y;
+    // 每行独立 ID 作用域，避免隐藏标签（##cb 等）与重复按钮文本造成 ID 冲突
+    ImGui::PushID(label);
     const float avail = ImGui::GetContentRegionAvail().x;
     ImGui::AlignTextToFramePadding();
     ImGui::TextColored(implemented ? kText : kTextDim, "%s", label);
@@ -155,7 +316,7 @@ bool RowToggle(const char* label, bool implemented, bool* value) {
     } else {
         changed = ImGui::Checkbox("##cb", value);
     }
-    ImGui::Spacing();
+    EndRow();
     return changed;
 }
 
@@ -163,10 +324,14 @@ bool RowToggle(const char* label, bool implemented, bool* value) {
 // 只读数值行
 void RowValue(const char* label, bool implemented, const char* value,
               const ImVec4& valueColor) {
+    PushMonoFont();
     const float valueWidth = ImGui::CalcTextSize(value).x;
+    ImGui::PopFont();
     RowBegin(label, implemented, valueWidth);
+    PushMonoFont();
     ImGui::TextColored(valueColor, "%s", value);
-    ImGui::Spacing();
+    ImGui::PopFont();
+    EndRow();
 }
 
 // Key-binding chip row (e.g. Home / End)
@@ -175,22 +340,27 @@ void RowKeyChip(const char* label, bool implemented, const char* key) {
     const float keyWidth = ImGui::CalcTextSize(key).x + 16.0f;
     RowBegin(label, implemented, keyWidth);
     TagChip(key, kAccent);
-    ImGui::Spacing();
+    EndRow();
 }
 
 // Button row — returns true when clicked
 // 按钮行 — 点击时返回 true
 bool RowButton(const char* label, bool implemented, const char* buttonText,
                const ImVec4& color, bool enabled) {
-    RowBegin(label, implemented, 92.0f);
+    PushSmallFont();
+    const float btnWidth = ImGui::CalcTextSize(buttonText).x + 28.0f;
+    ImGui::PopFont();
+    RowBegin(label, implemented, btnWidth);
     if (!enabled) ImGui::BeginDisabled();
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(color.x, color.y, color.z, 0.14f));
     ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(color.x, color.y, color.z, 0.26f));
     ImGui::PushStyleColor(ImGuiCol_Text, color);
-    const bool clicked = ImGui::Button(buttonText, ImVec2(84, 0));
+    PushSmallFont();
+    const bool clicked = ImGui::Button(buttonText, ImVec2(btnWidth, 0));
+    ImGui::PopFont();
     ImGui::PopStyleColor(3);
     if (!enabled) ImGui::EndDisabled();
-    ImGui::Spacing();
+    EndRow();
     return clicked;
 }
 
@@ -203,20 +373,19 @@ void RowPlaceholders(const char* const* names, int count) {
 
 // Pane header: title + description + status chip
 // 面板头部：标题 + 描述 + 状态徽章
-void PaneHeader(const char* title, const char* desc, int done, int total) {
-    ImGui::TextColored(kTextBright, "%s", title);
-    ImGui::TextColored(kTextDim, "%s", desc);
+void PaneHeader(const char* icon, const char* title, const char* desc,
+                int done, int total) {
+    PushTitleFont();
+    ImGui::TextColored(kTextBright, "%s %s", icon, title);
+    ImGui::PopFont();
+    PushSmallFont();
+    ImGui::TextColored(kTextDim, "%s › %s", desc, title);
+    ImGui::PopFont();
     ImGui::Spacing();
 
-    TagChip(done == 0 ? "待扩展" : "已实现", done == 0 ? kTextDim : kGreen);
-    ImGui::SameLine();
-    char buf[32];
-    snprintf(buf, sizeof(buf), "%d/%d", done, total);
-    ImGui::TextColored(kTextDim, "%s", buf);
-
-    ImGui::Spacing();
-    ImGui::Separator();
-    ImGui::Spacing();
+    StatusChip(done == 0 ? "待扩展" : "已实现",
+               done == 0 ? kTextDim : kGreen, done, total);
+    ImGui::Dummy(ImVec2(0, 8.0f));
 }
 
 // ==============================
@@ -413,16 +582,24 @@ GameFeature::UiRequest PvZFeature::ConsumeUiRequest() {
 
 void PvZFeature::OnRenderUI() {
     PushTheme();
+    PushBodyFont();
 
-    ImGui::SetNextWindowSize(ImVec2(680, 540), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSizeConstraints(ImVec2(640, 420), ImVec2(960, 900));
-    ImGui::SetNextWindowPos(ImVec2(60, 30), ImGuiCond_FirstUseEver);
+    // 窗口铺满主窗口客户区（菜单栏下方），随窗口缩放自适应
+    const float menuBarHeight = ImGui::GetFrameHeight();
+    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    ImGui::SetNextWindowPos(ImVec2(0.0f, menuBarHeight));
+    ImGui::SetNextWindowSize(ImVec2(display.x, display.y - menuBarHeight));
 
-    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoCollapse |
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar |
+                                   ImGuiWindowFlags_NoMove |
+                                   ImGuiWindowFlags_NoResize |
+                                   ImGuiWindowFlags_NoCollapse |
                                    ImGuiWindowFlags_NoScrollbar |
-                                   ImGuiWindowFlags_NoScrollWithMouse;
+                                   ImGuiWindowFlags_NoScrollWithMouse |
+                                   ImGuiWindowFlags_NoSavedSettings;
     if (!ImGui::Begin("Plants vs Zombies##menu", nullptr, flags)) {
         ImGui::End();
+        ImGui::PopFont();
         PopTheme();
         return;
     }
@@ -430,7 +607,8 @@ void PvZFeature::OnRenderUI() {
     RenderHeader();
     RenderTabBar();
 
-    ImGui::BeginChild("##body", ImVec2(0, 0));
+    // 主体区域，底部预留状态栏高度
+    ImGui::BeginChild("##body", ImVec2(0, -30.0f));
     RenderSidebar();
     ImGui::SameLine();
     ImGui::BeginChild("##pane", ImVec2(0, 0));
@@ -438,8 +616,48 @@ void PvZFeature::OnRenderUI() {
     ImGui::EndChild();
     ImGui::EndChild();
 
+    RenderStatusBar();
+
     ImGui::End();
+    ImGui::PopFont();
     PopTheme();
+}
+
+// ==============================
+// 底部状态栏（.st-bar）
+// ==============================
+
+void PvZFeature::RenderStatusBar() {
+    const ImVec2 min = ImGui::GetCursorScreenPos();
+    const ImVec2 winPos = ImGui::GetWindowPos();
+    const ImVec2 winSize = ImGui::GetWindowSize();
+    const ImVec2 winMax(winPos.x + winSize.x, winPos.y + winSize.y);
+    const float barTop = min.y - 4.0f;
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    dl->AddRectFilled(ImVec2(winPos.x, barTop), winMax, ToU32(kSurfaceBg));
+    dl->AddLine(ImVec2(winPos.x, barTop), ImVec2(winMax.x, barTop), ToU32(kBorder));
+
+    // 真实运行数据
+    PROCESS_MEMORY_COUNTERS pmc{};
+    float memMB = 0.0f;
+    if (::GetProcessMemoryInfo(::GetCurrentProcess(), &pmc, sizeof(pmc)))
+        memMB = static_cast<float>(pmc.WorkingSetSize) / (1024.0f * 1024.0f);
+
+    int drawCalls = 0;
+    if (const ImDrawData* dd = ImGui::GetDrawData())
+        for (int n = 0; n < dd->CmdListsCount; ++n)
+            drawCalls += dd->CmdLists[n]->CmdBuffer.Size;
+
+    ImGui::SetCursorPosX(12.0f);
+    PushTinyFont();
+    ImGui::TextColored(kTextDim, "FPS: %.0f", ImGui::GetIO().Framerate);
+    ImGui::SameLine(0, 16.0f);
+    ImGui::TextColored(kTextDim, "Draw Calls: %d", drawCalls);
+    ImGui::SameLine(0, 16.0f);
+    ImGui::TextColored(kTextDim, "Memory: %.1f MB", memMB);
+    ImGui::SameLine(0, 16.0f);
+    ImGui::TextColored(kTextDim, "Version: 1.2.0.1073");
+    ImGui::PopFont();
 }
 
 // ==============================
@@ -448,21 +666,63 @@ void PvZFeature::OnRenderUI() {
 
 void PvZFeature::RenderHeader() {
     const float avail = ImGui::GetContentRegionAvail().x;
+    ImDrawList* dl = ImGui::GetWindowDrawList();
 
-    // 游戏标题 + 版本
-    ImGui::TextColored(kTextBright, "Plants vs Zombies");
-    ImGui::SameLine();
-    ImGui::TextColored(kTextDim, "v1.2.0.1073");
+    // --- 左侧: ◈ CoCo v2.0 ---
+    PushUiFont();
+    ImGui::TextColored(kAccent, "◈");
+    ImGui::SameLine(0, 2.0f);
+    ImGui::TextColored(kTextBright, "CoCo");
+    ImGui::PopFont();
+    ImGui::SameLine(0, 6.0f);
+    PushTinyFont();
+    ImGui::TextColored(kTextDim, "v2.0");
+    ImGui::PopFont();
 
-    // 连接状态（右对齐）
+    // --- 右侧: 游戏徽章 + 语言切换 + 连接状态 ---
     const char* statusText = m_attached ? "已附加" : "未附加";
     const ImVec4& statusColor = m_attached ? kGreen : kRed;
-    const float statusWidth = ImGui::CalcTextSize("●").x + 8.0f +
-                              ImGui::CalcTextSize(statusText).x;
-    ImGui::SameLine(avail - statusWidth);
-    ImGui::TextColored(statusColor, "●");
-    ImGui::SameLine();
+    static bool langZh = true;
+
+    PushTinyFont();
+    const float badgeW = ImGui::CalcTextSize("☀ Plants vs Zombies").x + 20.0f;
+    const float zhW    = ImGui::CalcTextSize("中文").x + 18.0f;
+    const float enW    = ImGui::CalcTextSize("EN").x + 18.0f;
+    const float statusW = 7.0f + 5.0f + ImGui::CalcTextSize(statusText).x;
+    const float rightW = badgeW + 10.0f + zhW + 5.0f + enW + 10.0f + statusW;
+    const float rowH = ImGui::GetTextLineHeight() + 6.0f;
+    ImGui::PopFont();
+
+    ImGui::SameLine(avail - rightW);
+
+    // 绿色游戏徽章 chip（.game-badge）
+    const ImVec2 chipPos = ImGui::GetCursorScreenPos();
+    dl->AddRectFilled(chipPos, ImVec2(chipPos.x + badgeW, chipPos.y + rowH),
+                      ToU32(ImVec4(kGreen.x, kGreen.y, kGreen.z, 0.10f)), 3.0f);
+    dl->AddRect(chipPos, ImVec2(chipPos.x + badgeW, chipPos.y + rowH),
+                ToU32(ImVec4(kGreen.x, kGreen.y, kGreen.z, 0.35f)), 3.0f);
+    PushTinyFont();
+    const float badgeTextY = chipPos.y + (rowH - ImGui::GetTextLineHeight()) * 0.5f;
+    dl->AddText(ImVec2(chipPos.x + 10.0f, badgeTextY),
+                ToU32(kGreen), "☀ Plants vs Zombies");
+    ImGui::PopFont();
+    ImGui::Dummy(ImVec2(badgeW, rowH));
+
+    ImGui::SameLine(0, 10.0f);
+    if (LangButton("中文", langZh)) langZh = true;
+    ImGui::SameLine(0, 5.0f);
+    if (LangButton("EN", !langZh)) langZh = false;
+    ImGui::SameLine(0, 10.0f);
+
+    // 连接状态：圆点 + 文字
+    const ImVec2 dotPos = ImGui::GetCursorScreenPos();
+    dl->AddCircleFilled(ImVec2(dotPos.x + 3.5f, dotPos.y + rowH * 0.5f),
+                        3.5f, ToU32(statusColor));
+    ImGui::Dummy(ImVec2(7.0f, rowH));
+    ImGui::SameLine(0, 5.0f);
+    PushSmallFont();
     ImGui::TextColored(statusColor, "%s", statusText);
+    ImGui::PopFont();
 
     ImGui::Spacing();
     ImGui::Separator();
@@ -475,7 +735,7 @@ void PvZFeature::RenderHeader() {
 void PvZFeature::RenderTabBar() {
     const float avail = ImGui::GetContentRegionAvail().x;
     const float tabWidth = (avail - 5.0f * ImGui::GetStyle().ItemSpacing.x) / 6.0f;
-    const float tabHeight = 32.0f;
+    const float tabHeight = 40.0f;
     ImDrawList* drawList = ImGui::GetWindowDrawList();
 
     for (int i = 0; i < 6; ++i) {
@@ -502,17 +762,32 @@ void PvZFeature::RenderTabBar() {
         const ImVec2 min = ImGui::GetItemRectMin();
         const ImVec2 max = ImGui::GetItemRectMax();
         const float midY = (min.y + max.y) * 0.5f;
+        const bool hovered = ImGui::IsItemHovered();
 
-        // 标签文字
+        // 图标 + 名称（左侧，原型 .tab）
+        const ImVec2 iconSize = ImGui::CalcTextSize(kTabIcons[i]);
         const ImVec2 labelSize = ImGui::CalcTextSize(kTabNames[i]);
-        drawList->AddText(ImVec2(min.x + 12, midY - labelSize.y * 0.5f),
-                          ToU32(active ? kAccent : kText), kTabNames[i]);
+        const float textY = midY - labelSize.y * 0.5f;
+        const ImU32 textColor = ToU32(active ? kAccent : (hovered ? kText : kTextDim));
+        drawList->AddText(ImVec2(min.x + 12, textY), textColor, kTabIcons[i]);
+        drawList->AddText(ImVec2(min.x + 12 + iconSize.x + 5, textY),
+                          textColor, kTabNames[i]);
 
-        // 徽章（右对齐）
-        const ImVec2 badgeSize = ImGui::CalcTextSize(badge);
-        drawList->AddText(ImVec2(max.x - 10 - badgeSize.x,
-                                 midY - badgeSize.y * 0.5f),
-                          ToU32(kTextDim), badge);
+        // Hide counts only at the narrowest supported width to prevent overlap.
+        if (tabWidth >= 120.0f) {
+            PushTinyFont();
+            const ImVec2 badgeSize = ImGui::CalcTextSize(badge);
+            const float badgeH = badgeSize.y + 4.0f;
+            const ImVec2 badgeMin(max.x - 8.0f - badgeSize.x - 8.0f,
+                                  midY - badgeH * 0.5f);
+            drawList->AddRectFilled(badgeMin,
+                                    ImVec2(badgeMin.x + badgeSize.x + 8.0f,
+                                           badgeMin.y + badgeH),
+                                    ToU32(kSurfaceBg), 3.0f);
+            drawList->AddText(ImVec2(badgeMin.x + 4.0f, badgeMin.y + 2.0f),
+                              ToU32(kTextDim), badge);
+            ImGui::PopFont();
+        }
 
         // 选中下划线
         if (active)
@@ -534,17 +809,20 @@ void PvZFeature::RenderTabBar() {
 
 void PvZFeature::RenderSidebar() {
     ImGui::PushStyleColor(ImGuiCol_ChildBg, kSurfaceBg);
-    ImGui::BeginChild("##side", ImVec2(158, 0), ImGuiChildFlags_Borders);
+    ImGui::BeginChild("##side", ImVec2(196, 0), ImGuiChildFlags_Borders);
 
-    ImGui::Spacing();
-    ImGui::TextColored(kTextDim, "%s", kTabNames[m_uiTab]);
+    // 分组标签：图标 + 页名（.side-label，小号）
+    ImGui::SetCursorPos(ImVec2(12, 8));
+    PushMicroFont();
+    ImGui::TextColored(kTextDim, "%s %s", kTabIcons[m_uiTab],
+                       kTabNames[m_uiTab]);
+    ImGui::PopFont();
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
 
     const int count = kGroupCount[m_uiTab];
-    const float rowHeight = 30.0f;
-    const float lineHeight = ImGui::GetTextLineHeight();
+    const float rowHeight = 36.0f;
 
     for (int i = 0; i < count; ++i) {
         const GroupDef& group = kGroups[m_uiTab][i];
@@ -571,30 +849,38 @@ void PvZFeature::RenderSidebar() {
         const ImVec2 max = ImGui::GetItemRectMax();
         const float midY = (min.y + max.y) * 0.5f;
 
-        // 选中左侧强调条
+        // 选中左侧强调条（.node.active border-left）
         if (active)
             drawList->AddRectFilled(ImVec2(min.x, min.y),
                                     ImVec2(min.x + 2, max.y),
                                     ToU32(kAccent));
 
-        // 状态圆点：分组内有已实现项时为绿色
-        drawList->AddCircleFilled(ImVec2(min.x + 15, midY), 3.5f,
-                                  ToU32(group.done > 0 ? kGreen : kTextDim));
+        // Each submenu has its own symbol instead of a repeated arrow.
+        const float lineHeight = ImGui::GetTextLineHeight();
+        const float textY = min.y + (rowHeight - lineHeight) * 0.5f;
+        drawList->AddText(ImVec2(min.x + 12.0f, textY),
+                          ToU32(active ? kAccent : kTextDim),
+                          kGroupIcons[m_uiTab][i]);
 
         // 分组名
-        const float textY = min.y + (rowHeight - lineHeight) * 0.5f;
-        drawList->AddText(ImVec2(min.x + 28, textY),
+        drawList->AddText(ImVec2(min.x + 36, textY),
                           ToU32(active ? kAccent : kText), group.name);
 
-        // 已实现 / 总数
+        // 右侧：状态点 + 条目数（.node .cnt，仅总数）
         char counter[16];
-        snprintf(counter, sizeof(counter), "%d/%d", group.done, group.total);
+        snprintf(counter, sizeof(counter), "%d", group.total);
+        PushTinyFont();
+        const float cntLineHeight = ImGui::GetTextLineHeight();
+        const float cntY = min.y + (rowHeight - cntLineHeight) * 0.5f;
         const float counterWidth = ImGui::CalcTextSize(counter).x;
-        drawList->AddText(ImVec2(max.x - 14 - counterWidth, textY),
+        const float dotX = max.x - 12.0f - counterWidth - 5.0f - 2.5f;
+        drawList->AddCircleFilled(ImVec2(dotX, midY), 2.5f,
+                                  ToU32(group.done > 0 ? kGreen : kTextDim));
+        drawList->AddText(ImVec2(max.x - 12.0f - counterWidth, cntY),
                           ToU32(kTextDim), counter);
+        ImGui::PopFont();
 
         ImGui::PopID();
-        ImGui::Spacing();
     }
 
     ImGui::EndChild();
@@ -606,6 +892,8 @@ void PvZFeature::RenderSidebar() {
 // ==============================
 
 void PvZFeature::RenderPane() {
+    // 面板内边距 12px 16px（.pane）
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(16, 12));
     switch (m_uiTab) {
         case 0: RenderVisualPane(); break;
         case 1: RenderAssistPane(); break;
@@ -615,6 +903,13 @@ void PvZFeature::RenderPane() {
         case 5: RenderDeveloperPane(); break;
         default: break;
     }
+
+    // 空面板占位（.empty-pl）：整组均为“待扩展”时显示
+    const GroupDef& group = kGroups[m_uiTab][m_uiSub[m_uiTab]];
+    if (group.done == 0)
+        EmptyPlaceholder();
+
+    ImGui::PopStyleVar();
 }
 
 // --- 视觉 ---
@@ -629,7 +924,7 @@ void PvZFeature::RenderVisualPane() {
     static const int kCounts[4] = { 5, 4, 4, 4 };
 
     const GroupDef& group = kGroups[0][m_uiSub[0]];
-    PaneHeader(group.name, kTabDescs[0], group.done, group.total);
+    PaneHeader(kTabIcons[0], group.name, kTabDescs[0], group.done, group.total);
     RowPlaceholders(kItems[m_uiSub[0]], kCounts[m_uiSub[0]]);
 }
 
@@ -637,7 +932,7 @@ void PvZFeature::RenderVisualPane() {
 
 void PvZFeature::RenderAssistPane() {
     const GroupDef& group = kGroups[1][m_uiSub[1]];
-    PaneHeader(group.name, kTabDescs[1], group.done, group.total);
+    PaneHeader(kTabIcons[1], group.name, kTabDescs[1], group.done, group.total);
 
     switch (m_uiSub[1]) {
         case 0: { // 战斗
@@ -679,7 +974,7 @@ void PvZFeature::RenderAssistPane() {
 
 void PvZFeature::RenderNumericPane() {
     const GroupDef& group = kGroups[2][m_uiSub[2]];
-    PaneHeader(group.name, kTabDescs[2], group.done, group.total);
+    PaneHeader(kTabIcons[2], group.name, kTabDescs[2], group.done, group.total);
 
     // 当前阳光值（顶部展示）
     const float avail = ImGui::GetContentRegionAvail().x;
@@ -730,7 +1025,7 @@ void PvZFeature::RenderNumericPane() {
 
 void PvZFeature::RenderProcessPane() {
     const GroupDef& group = kGroups[3][m_uiSub[3]];
-    PaneHeader(group.name, kTabDescs[3], group.done, group.total);
+    PaneHeader(kTabIcons[3], group.name, kTabDescs[3], group.done, group.total);
 
     switch (m_uiSub[3]) {
         case 0: { // 连接
@@ -783,7 +1078,7 @@ void PvZFeature::RenderProcessPane() {
 
 void PvZFeature::RenderSettingsPane() {
     const GroupDef& group = kGroups[4][m_uiSub[4]];
-    PaneHeader(group.name, kTabDescs[4], group.done, group.total);
+    PaneHeader(kTabIcons[4], group.name, kTabDescs[4], group.done, group.total);
 
     switch (m_uiSub[4]) {
         case 0: { // 快捷键
@@ -813,7 +1108,7 @@ void PvZFeature::RenderSettingsPane() {
 
 void PvZFeature::RenderDeveloperPane() {
     const GroupDef& group = kGroups[5][m_uiSub[5]];
-    PaneHeader(group.name, kTabDescs[5], group.done, group.total);
+    PaneHeader(kTabIcons[5], group.name, kTabDescs[5], group.done, group.total);
 
     switch (m_uiSub[5]) {
         case 0: { // 内存

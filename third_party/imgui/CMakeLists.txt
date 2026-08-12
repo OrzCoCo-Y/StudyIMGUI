@@ -25,3 +25,6 @@ if(MSVC)
     target_compile_definitions(imgui PRIVATE _UNICODE UNICODE)
     target_link_libraries(imgui PUBLIC d3d11 dxgi)
 endif()
+
+# 启用 32 位 ImWchar，使字体图集可加载 BMP 之外的表情符号（菜单 emoji 图标用）
+target_compile_definitions(imgui PUBLIC IMGUI_USE_WCHAR32)

@@ -52,7 +52,7 @@ void OverlayApp::RegisterFeature(std::unique_ptr<GameFeature> feature) {
 // ==============================
 
 int OverlayApp::Run(HINSTANCE hInstance, int nCmdShow) {
-    // 1) 创建全屏透明覆盖窗口
+    // 1) 创建可移动、可缩放的桌面窗口
     if (!CreateOverlayWindow(hInstance)) {
         m_log->Add(LogLevel::Error, "创建窗口失败");
         return 1;
@@ -249,20 +249,29 @@ bool OverlayApp::CreateOverlayWindow(HINSTANCE hInstance) {
 
     if (!::RegisterClassEx(&wc)) return false;
 
+    // 普通桌面窗口：带标题栏，可拖动 / 调整大小。
+    // 客户区初始 860x560，与 UI 布局一致 —— 窗口框即 UI 框。
+    RECT rc{ 0, 0, 860, 560 };
+    const DWORD winStyle = WS_OVERLAPPEDWINDOW;
+    ::AdjustWindowRectEx(&rc, winStyle, FALSE, 0);
+    const int winW = rc.right - rc.left;
+    const int winH = rc.bottom - rc.top;
+    const int screenW = ::GetSystemMetrics(SM_CXSCREEN);
+    const int screenH = ::GetSystemMetrics(SM_CYSCREEN);
+    int x = (screenW - winW) / 2;
+    int y = (screenH - winH) / 2 - 20;
+    if (x < 0) x = 0;
+    if (y < 40) y = 40;
+
     m_hwnd = ::CreateWindowEx(
-        WS_EX_LAYERED, wc.lpszClassName, L"CoCo - Game Modifier Tool",
-        WS_POPUP,
-        0, 0,
-        ::GetSystemMetrics(SM_CXSCREEN),
-        ::GetSystemMetrics(SM_CYSCREEN),
+        0, wc.lpszClassName, L"CoCo - PvZ Menu Framework",
+        winStyle, x, y, winW, winH,
         nullptr, nullptr, hInstance, this);
 
     if (!m_hwnd) {
         ::UnregisterClass(wc.lpszClassName, hInstance);
         return false;
     }
-
-    ::SetLayeredWindowAttributes(m_hwnd, RGB(0,0,0), 0, LWA_COLORKEY);
     return true;
 }
 
@@ -328,6 +337,19 @@ LRESULT OverlayApp::WndProc(HWND hWnd, UINT msg,
     if (m_imgui->ProcessMessage(&m)) return true;
 
     switch (msg) {
+        case WM_GETMINMAXINFO: {
+            // 与 UI 尺寸约束一致：客户区最小 700x460，最大 1200x900
+            MINMAXINFO* mmi = reinterpret_cast<MINMAXINFO*>(lParam);
+            RECT rc{ 0, 0, 700, 460 };
+            ::AdjustWindowRectEx(&rc, WS_OVERLAPPEDWINDOW, FALSE, 0);
+            mmi->ptMinTrackSize.x = rc.right - rc.left;
+            mmi->ptMinTrackSize.y = rc.bottom - rc.top;
+            rc = RECT{ 0, 0, 1200, 900 };
+            ::AdjustWindowRectEx(&rc, WS_OVERLAPPEDWINDOW, FALSE, 0);
+            mmi->ptMaxTrackSize.x = rc.right - rc.left;
+            mmi->ptMaxTrackSize.y = rc.bottom - rc.top;
+            return 0;
+        }
         case WM_SIZE:
             m_d3d->Resize(LOWORD(lParam), HIWORD(lParam));
             return 0;

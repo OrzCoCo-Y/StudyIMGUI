@@ -41,6 +41,7 @@ private:
     void RenderTabBar();
     void RenderSidebar();
     void RenderPane();
+    void RenderStatusBar();
 
     void RenderVisualPane();
     void RenderAssistPane();

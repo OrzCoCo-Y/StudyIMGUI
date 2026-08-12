@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CoCo — PvZ Menu Framework</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg-page:#0f0f15;--bg-window:#1a1a24;--bg-surface:#22222e;--bg-hover:#2c2c3a;--bg-active:#35354a;--border:#2e2e3e;--text:#d4d4e4;--text-dim:#6c6c84;--text-bright:#f0f0ff;--accent:#6c8cff;--accent-bg:rgba(108,140,255,0.08);--green:#6fcf97;--green-bg:rgba(111,207,151,0.1);--red:#eb5757;--orange:#f2994a;--radius:4px;--font:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;--mono:'Consolas','Courier New',monospace}
+body{background:var(--bg-page);font-family:var(--font);display:flex;justify-content:center;align-items:center;min-height:100vh;padding:20px}
+.window{background:var(--bg-window);border:1px solid var(--border);border-radius:var(--radius);width:860px;max-width:100%;display:flex;flex-direction:column}
+.title-bar{display:flex;align-items:center;padding:8px 14px;background:var(--bg-surface);border-bottom:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;user-select:none}
+.title-bar .logo{font-size:13px;font-weight:600;color:var(--text-bright)}.title-bar .logo span{color:var(--accent)}.title-bar .ver{font-size:10px;color:var(--text-dim);margin-left:6px}.title-bar .spacer{flex:1}
+.title-bar .game-badge{font-size:10px;color:var(--green);background:var(--green-bg);padding:2px 10px;border-radius:3px;border:1px solid rgba(111,207,151,0.3);margin-right:10px}
+.lang-wrap{display:flex;gap:5px;margin-right:10px}
+.lang-btn{font-size:10px;padding:3px 9px;background:transparent;border:1px solid var(--border);color:var(--text-dim);cursor:pointer;border-radius:2px;font-family:var(--font);line-height:18px}
+.lang-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.conn-st{font-size:11px;display:flex;align-items:center;gap:5px}.conn-dot{width:7px;height:7px;border-radius:50%;display:inline-block}
+.tab-bar{display:flex;background:var(--bg-window);border-bottom:1px solid var(--border);padding:0 6px}
+.tab{padding:8px 14px;font-size:12px;font-weight:500;color:var(--text-dim);background:none;border:none;cursor:pointer;font-family:var(--font);position:relative;display:flex;align-items:center;gap:5px}
+.tab:hover{color:var(--text);background:var(--bg-hover)}.tab.active{color:var(--accent)}
+.tab.active::after{content:'';position:absolute;bottom:0;left:8px;right:8px;height:2px;background:var(--accent);border-radius:1px}
+.tab .badge{font-size:10px;color:var(--text-dim);background:var(--bg-surface);padding:0 6px;border-radius:3px;line-height:16px}
+.body{display:flex;min-height:420px}
+.side{width:168px;min-width:168px;background:var(--bg-surface);border-right:1px solid var(--border);padding:4px 0;overflow-y:auto}
+.side-label{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--text-dim);padding:10px 12px 5px;font-weight:600}
+.node{display:flex;align-items:center;gap:5px;padding:6px 12px 6px 14px;font-size:12px;color:var(--text);cursor:pointer;user-select:none;border-left:2px solid transparent}
+.node:hover{background:var(--bg-hover)}.node.active{background:var(--accent-bg);color:var(--accent);border-left-color:var(--accent)}
+.node .cnt{margin-left:auto;font-size:10px;display:flex;align-items:center;gap:3px;color:var(--text-dim)}
+.node .dot{width:5px;height:5px;border-radius:50%;display:inline-block}
+.pane{flex:1;padding:12px 16px;overflow-y:auto}
+.pane-title{font-size:14px;font-weight:600;color:var(--text-bright);margin-bottom:2px;display:flex;align-items:center;gap:6px}
+.pane-sub{font-size:11px;color:var(--text-dim);margin-bottom:4px}
+.pane-st{font-size:10px;padding:2px 10px;border-radius:3px;margin-bottom:10px;display:inline-flex;gap:4px}
+.pane-st.done{background:var(--green-bg);color:var(--green);border:1px solid rgba(111,207,151,0.25)}
+.pane-st.empty{background:rgba(108,108,132,0.1);color:var(--text-dim);border:1px solid var(--border)}
+.row{display:flex;align-items:center;padding:4px 6px;gap:8px;min-height:28px;border-radius:3px}
+.row:hover{background:rgba(255,255,255,0.025)}
+.row .lbl{flex:1;font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .lbl.ph{color:var(--text-dim);font-style:italic}
+.row .tag{font-size:9px;padding:1px 5px;border-radius:2px;border:1px solid var(--border);color:var(--text-dim);flex-shrink:0}
+.row .tag.ok{color:var(--green);border-color:rgba(111,207,151,0.4);background:rgba(111,207,151,0.08)}
+.cb{width:15px;height:15px;border:1.5px solid var(--border);background:transparent;flex-shrink:0;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px;color:transparent;border-radius:2px;user-select:none}
+.cb:hover{border-color:var(--accent);background:rgba(108,140,255,0.06)}.cb.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.cb.disable{opacity:0.3;cursor:not-allowed;pointer-events:none}
+.inp{width:68px;background:var(--bg-surface);border:1px solid var(--border);padding:4px 8px;color:var(--text);font-size:11px;font-family:var(--mono);text-align:right;flex-shrink:0;border-radius:2px;outline:none}
+.inp:focus{border-color:var(--accent)}.inp:disabled{opacity:0.25;cursor:not-allowed}
+.btn{background:var(--bg-surface);border:1px solid var(--border);color:var(--text);padding:4px 14px;font-size:11px;font-family:var(--font);cursor:pointer;flex-shrink:0;border-radius:2px;user-select:none}
+.btn:hover{background:var(--bg-hover);border-color:var(--accent);color:var(--accent)}.btn:active{transform:scale(0.95)}.btn:disabled{opacity:0.25;cursor:not-allowed;pointer-events:none}
+.btn.gr{color:var(--green);border-color:var(--green)}.btn.gr:hover{background:rgba(111,207,151,0.15)}
+.btn.rd{color:var(--red);border-color:var(--red)}.btn.rd:hover{background:rgba(235,87,87,0.15)}
+.btn.og{color:var(--orange);border-color:var(--orange)}.btn.og:hover{background:rgba(242,153,74,0.15)}
+.combo{background:var(--bg-surface);border:1px solid var(--border);padding:4px 24px 4px 9px;color:var(--text);font-size:11px;cursor:pointer;flex-shrink:0;min-width:60px;border-radius:2px;user-select:none;font-family:var(--font);position:relative}
+.combo::after{content:'▾';position:absolute;right:7px;top:50%;transform:translateY(-50%);font-size:8px;color:var(--text-dim)}
+
+.empty-pl{text-align:center;padding:32px 16px;border:1px dashed var(--border);border-radius:var(--radius);color:var(--text-dim);font-size:12px;margin:8px 0}
+.empty-pl .icon{font-size:28px;margin-bottom:6px;opacity:0.3}.empty-pl .hint{font-size:10px;margin-top:4px;opacity:0.6}
+.st-bar{background:var(--bg-surface);border-top:1px solid var(--border);padding:5px 12px;font-size:10px;color:var(--text-dim);display:flex;gap:16px;border-radius:0 0 var(--radius) var(--radius)}
+.toast{position:fixed;bottom:40px;left:50%;transform:translateX(-50%);background:var(--bg-active);border:1px solid var(--accent);color:var(--text);font-size:12px;padding:8px 20px;border-radius:var(--radius);opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:100;font-family:var(--font)}
+.toast.on{opacity:1}.toast.ok{border-color:var(--green);color:var(--green)}.toast.er{border-color:var(--red);color:var(--red)}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+</style>
+</head>
+<body>
+<div class="window">
+  <div class="title-bar">
+    <span class="logo"><span>◈</span> CoCo</span><span class="ver">v2.0</span>
+    <span class="spacer"></span>
+    <span class="game-badge" id="gb">🌻 Plants vs Zombies</span>
+    <div class="lang-wrap"><button class="lang-btn active" id="bZh">中文</button><button class="lang-btn" id="bEn">EN</button></div>
+    <div class="conn-st"><span class="conn-dot" id="cd"></span><span id="ct"></span></div>
+  </div>
+  <div class="tab-bar" id="tb"></div>
+  <div class="body">
+    <div class="side" id="sb"></div>
+    <div class="pane" id="pn"></div>
+  </div>
+  <div class="st-bar"><span>FPS: 144</span><span id="sbd">Draw Calls: 12</span><span>Memory: 18.7 MB</span><span>Version: 1.2.0.1073</span></div>
+</div>
+<div class="toast" id="tt"></div>
+
+<script>
+//=DATA========================================
+var ZH={
+  idle:'空闲',att:'已附加',det:'已分离',
+  tabs:['视觉','辅助','数值','进程','设置','开发者'],
+  desc:['游戏画面叠加绘制元素','开关型行为修改 — NoCD / 自动采集','数值编辑器 — 阳光值修改','进程连接管理 — 附加/分离/信息','工具级偏好配置','调试与高级工具 — 日志'],
+  subs:{'视觉':['玩家','世界','武器','其他视觉'],'辅助':['战斗','移动','自动化','无敌'],'数值':['属性','资源','进度','武器属性'],'进程':['连接','信息','内存扫描'],'设置':['快捷键','外观','通用'],'开发者':['内存','指针','脚本','日志']},
+  items:{'玩家':['方框透视','骨骼透视','血量条','名字标签','距离'],'世界':['物品高亮','全亮','线框模式','去雾'],'武器':['自瞄FOV圈','目标连线','命中框显示','弹道轨迹'],'其他视觉':['准星','FPS计数','水印','计时器'],'战斗':['1格 无CD','2格 无CD','3格 无CD','快速射击','自动瞄准'],'移动':['加速','跳跃','飞行','无限冲刺'],'自动化':['自动采集阳光','自动收集','自动对话'],'无敌':['植物无敌','无限阳光','一击必杀'],'属性':['生命值','攻击力','防御力','速度'],'资源':['阳光值','金币','钻石'],'进度':['关卡','经验值'],'武器属性':['伤害','射速','冷却时间','射程'],'连接':['附加进程','分离进程','重连进程','PID','进程名称'],'信息':['运行时间','模块列表','架构'],'内存扫描':['起始地址','结束地址','扫描区域'],'快捷键':['覆盖层开关','禁用所有','功能绑定'],'外观':['主题','透明度','字体大小','语言'],'通用':['开机启动','管理员模式','检查更新','保存/加载配置'],'内存':['内存查看器','十六进制编辑','地址导航'],'指针':['指针解析','偏移计算器','偏移配置表'],'脚本':['Lua控制台','脚本加载器','自动运行脚本'],'日志':['清除日志','保存到文件','自动滚动','时间戳条目']},
+  impl:['已实现','待扩展'],apply:'应用',view:'查看',edit:'编辑',open:'打开',go:'前往',clear:'清除',save:'保存',attach:'附加',detach:'分离',reconnect:'重连',empty:'暂无功能',hint:'保留扩展槽位',game:'Plants vs Zombies',sunOk:'阳光值已写入',sunEr:'写入失败',attMsg:'已附加',detMsg:'已分离',recMsg:'已重连',noConn:'进程未附加',clsDone:'已清除',savDone:'已保存',
+  all:'全部',themeD:'深色',langName:'中文',procN:'PlantsVsZombies.exe',
+  cdOn:'已启用',cdOff:'已禁用',cd1:'1格 无CD: ',cd2:'2格 无CD: ',cd3:'3格 无CD: ',ac:'自动采集阳光: '
+};
+var EN={idle:'Idle',att:'Attached',det:'Detached',
+  tabs:['Visual','Assist','Numeric','Process','Settings','Developer'],
+  desc:['Overlay draw elements','Toggle behaviors — NoCD / Auto Collect','Value editors — Sunshine value','Process connection — Attach/Detach/Info','Tool-level preferences','Debugging & advanced — Logging'],
+  subs:{'视觉':['Player','World','Weapon','Misc'],'辅助':['Combat','Movement','Automation','Invincibility'],'数值':['Attributes','Resources','Progression','Weapon Stats'],'进程':['Connection','Info','Memory Scan'],'设置':['Hotkeys','Appearance','General'],'开发者':['Memory','Pointer','Script','Log']},
+  items:{'玩家':['Box ESP','Skeleton','Health Bar','Name Tag','Distance'],'世界':['Item Highlight','Fullbright','Wireframe','No Fog'],'武器':['Aim FOV Circle','Target Line','Hitbox Display','Bullet Trace'],'其他视觉':['Crosshair','FPS Counter','Watermark','Timer'],'战斗':['No CD Slot 1','No CD Slot 2','No CD Slot 3','Rapid Fire','Auto Aim'],'移动':['Speed Hack','Jump','Fly','Infinite Sprint'],'自动化':['Auto Collect Sunshine','Auto Collect','Auto Dialog'],'无敌':['Plant Invincible','Infinite Sunshine','One Hit Kill'],'属性':['HP','ATK','DEF','Speed'],'资源':['Sunshine','Gold','Diamonds'],'进度':['Level','EXP'],'武器属性':['Damage','Fire Rate','Cooldown','Range'],'连接':['Attach','Detach','Reconnect','PID','Process Name'],'信息':['Uptime','Module List','Architecture'],'内存扫描':['Start Address','End Address','Scan Region'],'快捷键':['Overlay Toggle','Disable All','Per-feature binds'],'外观':['Theme','Opacity','Font Size','Language'],'通用':['Run on Startup','Admin Mode','Check Updates','Save/Load Config'],'内存':['Memory Viewer','Hex Editor','Address Navigator'],'指针':['Pointer Resolver','Offset Calculator','Offset Config Table'],'脚本':['Lua Console','Script Loader','Auto-run Scripts'],'日志':['Clear Log','Save to File','Auto-scroll','Timestamped Entries']},
+  impl:['Done','Planned'],apply:'Apply',view:'View',edit:'Edit',open:'Open',go:'Go',clear:'Clear',save:'Save',attach:'Attach',detach:'Detach',reconnect:'Reconnect',empty:'No features yet',hint:'Reserved slot',game:'Plants vs Zombies',sunOk:'Sunshine written',sunEr:'Write failed',attMsg:'Attached',detMsg:'Detached',recMsg:'Reconnected',noConn:'Process not attached',clsDone:'Log cleared',savDone:'Log saved',
+  all:'All',themeD:'Dark',langName:'English',procN:'PlantsVsZombies.exe',
+  cdOn:'ON',cdOff:'OFF',cd1:'No CD Slot 1: ',cd2:'No CD Slot 2: ',cd3:'No CD Slot 3: ',ac:'Auto Collect: '
+};
+
+// Implemented status (1=impl, 0=todo)
+var IMPL={};
+IMPL['战斗']=[1,1,1,0,0];IMPL['自动化']=[1,0,0];IMPL['资源']=[1,0,0];
+IMPL['连接']=[1,1,1,1,1];IMPL['信息']=[1,1,1];IMPL['内存扫描']=[1,1,1];
+IMPL['快捷键']=[1,1,1];IMPL['外观']=[1,1,1,1];IMPL['通用']=[1,1,1,1];
+IMPL['指针']=[0,1,1];IMPL['日志']=[1,1,1,1];
+
+// Toggle state keys per item
+var TKEY={};
+TKEY['战斗']=['cd1','cd2','cd3','',''];
+TKEY['自动化']=['autoCol','',''];
+TKEY['资源']=['sun','',''];
+
+var KEYS=['视觉','辅助','数值','进程','设置','开发者'];
+var ICON={'视觉':'🎨','辅助':'⚡','数值':'🔢','进程':'⚙️','设置':'🔧','开发者':'💻'};
+var SUB={'视觉':{t:'tg',g:['玩家','世界','武器','其他视觉']},'辅助':{t:'tg',g:['战斗','移动','自动化','无敌']},'数值':{t:'nm',g:['属性','资源','进度','武器属性']},'进程':{t:'pr',g:['连接','信息','内存扫描']},'设置':{t:'st',g:['快捷键','外观','通用']},'开发者':{t:'dv',g:['内存','指针','脚本','日志']}};
+
+//=STATE======================================
+var L=ZH, lang='zh', tab='视觉', sub=null, conn=true;
+var cd1=true,cd2=true,cd3=false,ac=true,sunVal=150,ttimer=null;
+
+function $(x){return document.getElementById(x)}
+function T(k){return L[k]||k}
+
+function toast(msg,cls){
+  var el=$('tt');el.textContent=msg;el.className='toast on '+(cls||'');
+  if(ttimer)clearTimeout(ttimer);
+  ttimer=setTimeout(function(){el.className='toast';},1800);
+}
+
+//=LANG SWITCH===============================
+$('bZh').onclick=function(){L=ZH;lang='zh';$('bZh').className='lang-btn active';$('bEn').className='lang-btn';R();};
+$('bEn').onclick=function(){L=EN;lang='en';$('bEn').className='lang-btn active';$('bZh').className='lang-btn';R();};
+
+//=RENDER====================================
+function R(){
+  // Conn
+  var d=$('cd'),t=$('ct');
+  if(conn){d.style.background='var(--green)';t.textContent=T('att');t.style.color='var(--green)';}
+  else{d.style.background='var(--red)';t.textContent=T('det');t.style.color='var(--red)';}
+  $('gb').textContent='🌻 '+T('game');
+
+  // Tabs
+  var tb=$('tb'),h='';
+  KEYS.forEach(function(k,i){
+    var sg=SUB[k].g;
+    var ai=0,ii=0;
+    sg.forEach(function(sk){
+      var arr=L.items[sk]||[];var im=IMPL[sk]||arr.map(function(){return 0;});
+      arr.forEach(function(_,j){ai++;if(im[j])ii++;});
+    });
+    var a=(k===tab?' active':'');
+    h+='<button class="tab'+a+'">'+ICON[k]+' '+T('tabs')[i]+' <span class="badge">'+ii+'/'+ai+'</span></button>';
+  });
+  tb.innerHTML=h;
+  // Bind tabs
+  tb.querySelectorAll('.tab').forEach(function(el,i){
+    el.onclick=function(){tab=KEYS[i];sub=null;R();};
+  });
+
+  // Sidebar
+  var cu=SUB[tab];
+  var sn=T('subs')[tab];
+  if(!sub)sub=cu.g[0];
+  var sb=$('sb'),sh='<div class="side-label">'+ICON[tab]+' '+T('tabs')[KEYS.indexOf(tab)]+'</div>';
+  cu.g.forEach(function(sk,j){
+    var arr=L.items[sk]||[];var im=IMPL[sk]||arr.map(function(){return 0;});
+    var ic=0;im.forEach(function(x){if(x)ic++;});
+    var a=(sk===sub?' active':'');
+    var d='<span class="dot" style="background:'+(ic>0?'var(--green)':'var(--text-dim)')+'"></span>';
+    sh+='<div class="node'+a+'" data-sk="'+sk+'"><span>▶</span>'+sn[j]+'<span class="cnt">'+d+arr.length+'</span></div>';
+  });
+  sb.innerHTML=sh;
+  sb.querySelectorAll('.node').forEach(function(el){
+    el.onclick=function(){sub=this.getAttribute('data-sk');R();};
+  });
+
+  // Pane
+  P();
+}
+
+function P(){
+  var cu=SUB[tab];
+  var sn=T('subs')[tab];
+  var si=cu.g.indexOf(sub);
+  var sg=sn[si];
+  var desc=T('desc')[KEYS.indexOf(tab)];
+  var items=L.items[sub]||[];
+  var im=IMPL[sub]||items.map(function(){return 0;});
+  var tk=TKEY[sub]||items.map(function(){return '';});
+  var ic=0;im.forEach(function(x){if(x)ic++;});
+  var allPh=ic===0;
+
+  var h='<div class="pane-title">'+ICON[tab]+' '+sg+'</div>';
+  h+='<div class="pane-sub">'+desc+' › '+sg+'</div>';
+  h+='<div class="pane-st '+(allPh?'empty':'done')+'">'+T('impl')[allPh?1:0]+' · '+ic+'/'+items.length+'</div>';
+
+  items.forEach(function(item,i){
+    var impl=!!im[i];
+    var key=tk[i]||'';
+    var tg=impl?'tag ok':'tag';
+    var tgT=impl?T('impl')[0]:T('impl')[1];
+    var tp=cu.t;
+    h+='<div class="row"><span class="lbl'+(impl?'':' ph')+'">'+item+'</span><span class="'+tg+'">'+tgT+'</span>';
+
+    if(tp==='nm'){
+      if(impl&&key==='sun'){
+        h+='<input class="inp" id="sunInp" value="'+sunVal+'"><button class="btn" id="sunBtn">'+T('apply')+'</button>';
+      }else{h+='<input class="inp" value="0" disabled><button class="btn" disabled>'+T('apply')+'</button>';}
+    }else if(tp==='pr'){
+      if(item==='Attach'||item==='附加进程') h+='<button class="btn gr" data-act="att">'+T('attach')+'</button>';
+      else if(item==='Detach'||item==='分离进程') h+='<button class="btn rd" data-act="det">'+T('detach')+'</button>';
+      else if(item==='Reconnect'||item==='重连进程') h+='<button class="btn og" data-act="rec">'+T('reconnect')+'</button>';
+      else if(item==='PID') h+='<span style="font-size:11px;color:var(--text-dim);font-family:var(--mono)">'+(conn?'0x12A4':'—')+'</span>';
+      else if(item==='Process Name'||item==='进程名称') h+='<span style="font-size:11px;color:'+(conn?'var(--green)':'var(--text-dim)')+'">'+(conn?T('procN'):'—')+'</span>';
+      else if(item==='Uptime'||item==='运行时间') h+='<span style="font-size:11px;color:var(--text-dim)">'+(conn?'02:34:17':'—')+'</span>';
+      else if(item==='Module List'||item==='模块列表') h+='<button class="btn" id="modBtn">'+T('view')+'</button>';
+      else if(item==='Architecture'||item==='架构') h+='<span class="combo">x86 / 32-bit</span>';
+      else if(item==='Start Address'||item==='起始地址') h+='<input class="inp" value="0x00000000"><button class="btn" disabled>Go</button>';
+      else if(item==='End Address'||item==='结束地址') h+='<input class="inp" value="0x7FFFFFFF">';
+      else if(item==='Scan Region'||item==='扫描区域') h+='<span class="combo">'+T('all')+'</span>';
+      else h+='<span style="font-size:11px;color:var(--text-dim)">—</span>';
+    }else if(tp==='st'){
+      if(item==='Theme'||item==='主题') h+='<span class="combo" id="themeC">'+T('themeD')+'</span>';
+      else if(item==='Opacity'||item==='透明度') h+='<div class="combo">1.00</div>';
+      else if(item==='Font Size'||item==='字体大小') h+='<div class="combo">14</div>';
+      else if(item==='Language'||item==='语言') h+='<span class="combo" id="langC">'+T('langName')+'</span>';
+      else if(item==='Overlay Toggle'||item==='覆盖层开关') h+='<span class="tag ok">Home</span>';
+      else if(item==='Disable All'||item==='禁用所有') h+='<span class="tag ok">End</span>';
+      else if(item==='Per-feature binds'||item==='功能绑定') h+='<button class="btn">'+T('edit')+'</button>';
+      else h+='<div class="cb on">✔</div>';
+    }else if(tp==='dv'){
+      if(item==='Clear Log'||item==='清除日志') h+='<button class="btn rd" id="clrL">'+T('clear')+'</button>';
+      else if(item==='Save to File'||item==='保存到文件') h+='<button class="btn" id="savL">'+T('save')+'</button>';
+      else if(item==='Offset Calculator'||item==='偏移计算器') h+='<button class="btn"'+(impl?'':' disabled')+'>'+T('open')+'</button>';
+      else if(item==='Offset Config Table'||item==='偏移配置表') h+='<button class="btn"'+(impl?'':' disabled')+'>'+T('edit')+'</button>';
+      else h+='<div class="cb'+(impl?' on':' disable')+'">'+(impl?'✔':'')+'</div>';
+    }else{
+      // toggle
+      if(impl){
+        var on=(key==='cd1'?cd1:key==='cd2'?cd2:key==='cd3'?cd3:key==='autoCol'?ac:true);
+        h+='<div class="cb'+(on?' on':'')+'" data-key="'+key+'">'+(on?'✔':'')+'</div>';
+      }else{h+='<div class="cb disable"></div>';}
+    }
+    h+='</div>';
+  });
+
+  if(allPh)h+='<div class="empty-pl"><div class="icon">📋</div><div class="">'+T('empty')+'</div><div class="hint">'+T('hint')+'</div></div>';
+  $('pn').innerHTML=h;
+
+  //=BIND EVENTS=============================
+  // Checkbox toggles
+  $('pn').querySelectorAll('[data-key]').forEach(function(el){
+    el.onclick=function(){
+      var k=this.getAttribute('data-key');
+      if(k==='cd1'){cd1=!cd1;toast(T('cd1')+(cd1?T('cdOn'):T('cdOff')));}
+      else if(k==='cd2'){cd2=!cd2;toast(T('cd2')+(cd2?T('cdOn'):T('cdOff')));}
+      else if(k==='cd3'){cd3=!cd3;toast(T('cd3')+(cd3?T('cdOn'):T('cdOff')));}
+      else if(k==='autoCol'){ac=!ac;toast(T('ac')+(ac?T('cdOn'):T('cdOff')));}
+      R();
+    };
+  });
+
+  // Sunshine button
+  var sunBtn=$('pn').querySelector('#sunBtn');
+  if(sunBtn)sunBtn.onclick=function(){
+    var inp=$('pn').querySelector('#sunInp');
+    if(inp){var v=parseInt(inp.value,10);if(!isNaN(v)){sunVal=v;toast(T('sunOk')+': '+v,'ok');}else toast(T('sunEr'),'er');}
+  };
+
+  // Process buttons
+  $('pn').querySelectorAll('[data-act]').forEach(function(el){
+    el.onclick=function(){
+      var a=this.getAttribute('data-act');
+      if(a==='att'){conn=true;toast(T('attMsg'),'ok');}
+      else if(a==='det'){conn=false;toast(T('detMsg'),'er');}
+      else if(a==='rec'){conn=true;toast(T('recMsg'),'ok');}
+      R();
+    };
+  });
+
+  // Module button
+  var mb=$('pn').querySelector('#modBtn');
+  if(mb)mb.onclick=function(){toast('kernel32.dll / user32.dll / ...','ok');};
+
+  // Clear log
+  var cl=$('pn').querySelector('#clrL');
+  if(cl)cl.onclick=function(){toast(T('clsDone'),'ok');};
+
+  // Save log
+  var sl=$('pn').querySelector('#savL');
+  if(sl)sl.onclick=function(){toast(T('savDone'),'ok');};
+}
+
+//=INIT======================================
+$('bZh').className='lang-btn active';
+R();
+</script>
+</body>
+</html>

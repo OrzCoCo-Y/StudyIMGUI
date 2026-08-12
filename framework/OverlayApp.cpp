@@ -85,19 +85,26 @@ int OverlayApp::Run(HINSTANCE hInstance, int nCmdShow) {
         // 热键
         PollHotkeys();
 
+        // 处理 Feature 的进程操作请求（附加/分离/重连）
+        // Handle feature requests: attach / detach / reconnect
+        HandleUiRequests();
+
         // 进程管理：自动附加当前 Feature 的目标进程
-        if (m_activeFeature && !m_process->IsAttached()) {
-            if (m_process->Attach(m_activeFeature->GetProcessName())) {
-                m_activeFeature->OnAttach(*m_memory);
-                m_log->Add(LogLevel::Info, "已附加到 %s",
-                           m_activeFeature->GetProcessName());
-            }
+        // Auto-attach the active feature's target process
+        if (m_activeFeature && !m_process->IsAttached() && !m_autoAttachSuppressed) {
+            AttachActiveFeature(false);
         }
 
         // 每帧更新（数据同步 + 持续写入）
         m_imgui->NewFrame();
-        if (m_activeFeature && m_process->IsAttached()) {
-            m_activeFeature->OnUpdate(*m_memory);
+        if (m_activeFeature) {
+            // 推送进程状态供 UI 展示（附加状态 / PID / 句柄）
+            // Push process state for UI display
+            m_activeFeature->OnFrameProcessState(
+                m_process->IsAttached(), m_process->ProcessId(), m_process->Handle());
+            if (m_process->IsAttached()) {
+                m_activeFeature->OnUpdate(*m_memory);
+            }
         }
 
         // 绘制 UI（如果窗口可见）
@@ -134,12 +141,14 @@ void OverlayApp::DrawMenuBar() {
                 if (isActive) {
                     if (m_activeFeature) m_activeFeature->OnDetach();
                     m_process->Detach();
+                    m_autoAttachSuppressed = false;
                     m_activeFeature = f.get();
                     m_log->Add(LogLevel::Info, "切换到: %s",
                                m_activeFeature->GetName());
                 } else {
                     if (m_activeFeature) m_activeFeature->OnDetach();
                     m_process->Detach();
+                    m_autoAttachSuppressed = false;
                     m_activeFeature = nullptr;
                 }
             }
@@ -163,6 +172,67 @@ void OverlayApp::DrawMenuBar() {
     }
 
     ImGui::EndMainMenuBar();
+}
+
+// ==============================
+// Feature 请求处理
+// ==============================
+
+void OverlayApp::HandleUiRequests() {
+    for (auto& feature : m_features) {
+        const GameFeature::UiRequest request = feature->ConsumeUiRequest();
+        if (request == GameFeature::UiRequest::None) continue;
+
+        // 若无活动 Feature，自动激活发起请求的 Feature
+        // Auto-activate the requesting feature when nothing is active
+        if (!m_activeFeature) m_activeFeature = feature.get();
+
+        if (feature.get() != m_activeFeature) {
+            m_log->Add(LogLevel::Warning, "请先在菜单中切换到 %s", feature->GetName());
+            continue;
+        }
+
+        switch (request) {
+            case GameFeature::UiRequest::Attach:
+                if (!m_process->IsAttached()) {
+                    m_autoAttachSuppressed = false;
+                    AttachActiveFeature(true);
+                }
+                break;
+            case GameFeature::UiRequest::Detach:
+                if (m_process->IsAttached()) {
+                    m_activeFeature->OnDetach();
+                    m_process->Detach();
+                    m_autoAttachSuppressed = true;
+                    m_log->Add(LogLevel::Info, "已分离 %s", m_activeFeature->GetName());
+                }
+                break;
+            case GameFeature::UiRequest::Reconnect:
+                if (m_process->IsAttached()) m_activeFeature->OnDetach();
+                m_process->Detach();
+                m_autoAttachSuppressed = false;
+                AttachActiveFeature(true);
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+// ==============================
+// 附加当前 Feature 目标进程
+// ==============================
+
+bool OverlayApp::AttachActiveFeature(bool notifyFailure) {
+    if (!m_activeFeature) return false;
+    if (!m_process->Attach(m_activeFeature->GetProcessName())) {
+        if (notifyFailure)
+            m_log->Add(LogLevel::Warning, "附加失败: %s", m_activeFeature->GetProcessName());
+        return false;
+    }
+    m_activeFeature->OnAttach(*m_memory);
+    m_log->Add(LogLevel::Info, "已附加到 %s", m_activeFeature->GetProcessName());
+    return true;
 }
 
 // ==============================

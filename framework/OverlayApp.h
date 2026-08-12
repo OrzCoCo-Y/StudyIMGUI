@@ -35,6 +35,8 @@ private:
     bool PumpMessages(bool& shouldQuit);
     void PollHotkeys();
     void DrawMenuBar();
+    void HandleUiRequests();
+    bool AttachActiveFeature(bool notifyFailure);
 
     static LRESULT WINAPI StaticWndProc(HWND, UINT, WPARAM, LPARAM);
     LRESULT WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -43,6 +45,10 @@ private:
     bool     m_windowVisible = true;
     bool     m_homeWasDown = false;
     bool     m_endWasDown  = false;
+
+    // Suppresses auto-attach after the user detached manually
+    // 用户手动分离后抑制自动附加
+    bool     m_autoAttachSuppressed = false;
 
     std::unique_ptr<D3D11Device>        m_d3d;
     std::unique_ptr<ImGuiRenderer>       m_imgui;

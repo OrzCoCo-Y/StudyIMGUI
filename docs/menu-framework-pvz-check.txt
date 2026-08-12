@@ -1,0 +1,4 @@
+Braces: 67 / 67 OK
+Parens: 236 / 236 OK
+Script length: 13200
+Lines: 220

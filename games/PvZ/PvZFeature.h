@@ -64,6 +64,7 @@ private:
     bool m_cdSlot2Enabled      = false;
     bool m_cdSlot3Enabled      = false;
     bool m_autoCollectSunshine = false;
+    double m_lastAutoCollect   = -1.0;  // 上次自动采集时间（秒，用于节流）
 
     // 宿主桥接状态
     bool      m_attached = false;

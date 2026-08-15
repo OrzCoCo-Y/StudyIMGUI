@@ -28,6 +28,12 @@ public:
     HANDLE Handle()     const { return m_handle; }
     DWORD  ProcessId()  const { return m_pid; }
 
+    // 目标进程是否仍在运行（用于检测退出）
+    bool IsAlive() const;
+
+    // 目标进程是否为 64 位（用于指针链解析位宽）
+    bool Is64Bit() const;
+
 private:
     DWORD  FindProcessId(const std::wstring& name) const;
 

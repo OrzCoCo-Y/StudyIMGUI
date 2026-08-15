@@ -65,19 +65,23 @@ bool D3D11Device::Resize(UINT width, UINT height) {
 }
 
 void D3D11Device::BeginFrame(const float clearColor[4]) {
+    if (!m_context || !m_renderTargetView) return;
     m_context->OMSetRenderTargets(1, &m_renderTargetView, nullptr);
     m_context->ClearRenderTargetView(m_renderTargetView, clearColor);
 }
 
 void D3D11Device::EndFrame(bool vsync) {
-    m_swapChain->Present(vsync ? 1 : 0, 0);
+    if (m_swapChain)
+        m_swapChain->Present(vsync ? 1 : 0, 0);
 }
 
 void D3D11Device::CreateRenderTarget() {
+    if (m_renderTargetView) return;  // 已存在，避免重复创建
     ID3D11Texture2D* backBuffer = nullptr;
     if (SUCCEEDED(m_swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer)))) {
-        m_device->CreateRenderTargetView(backBuffer, nullptr,
-                                         &m_renderTargetView);
+        if (FAILED(m_device->CreateRenderTargetView(backBuffer, nullptr,
+                                                    &m_renderTargetView)))
+            m_renderTargetView = nullptr;
         backBuffer->Release();
     }
 }

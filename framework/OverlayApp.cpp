@@ -89,10 +89,17 @@ int OverlayApp::Run(HINSTANCE hInstance, int nCmdShow) {
         // Handle feature requests: attach / detach / reconnect
         HandleUiRequests();
 
-        // 进程管理：自动附加当前 Feature 的目标进程
-        // Auto-attach the active feature's target process
-        if (m_activeFeature && !m_process->IsAttached() && !m_autoAttachSuppressed) {
-            AttachActiveFeature(false);
+        // 进程管理：检测目标进程退出并自动分离，然后自动附加当前 Feature
+        // Auto-detach a dead target, then auto-attach the active feature's process
+        if (m_activeFeature && !m_autoAttachSuppressed) {
+            if (m_process->IsAttached() && !m_process->IsAlive()) {
+                m_activeFeature->OnDetach();
+                m_process->Detach();
+                m_log->Add(LogLevel::Warning, "目标进程已退出，自动分离");
+            }
+            if (!m_process->IsAttached()) {
+                AttachActiveFeature(false);
+            }
         }
 
         // 每帧更新（数据同步 + 持续写入）
@@ -264,7 +271,7 @@ bool OverlayApp::CreateOverlayWindow(HINSTANCE hInstance) {
     if (y < 40) y = 40;
 
     m_hwnd = ::CreateWindowEx(
-        0, wc.lpszClassName, L"CoCo - PvZ Menu Framework",
+        0, wc.lpszClassName, L"CoCo - Game Modifier Tool",
         winStyle, x, y, winW, winH,
         nullptr, nullptr, hInstance, this);
 
@@ -295,6 +302,13 @@ bool OverlayApp::PumpMessages(bool& shouldQuit) {
 // ==============================
 
 void OverlayApp::PollHotkeys() {
+    // 输入框获得焦点时禁用全局热键，避免 HOME/END 移动光标被误判为显隐切换
+    if (ImGui::GetIO().WantTextInput) {
+        m_homeWasDown = false;
+        m_endWasDown  = false;
+        return;
+    }
+
     bool homeDown = (::GetAsyncKeyState(VK_HOME) & 0x8000) != 0;
     bool endDown  = (::GetAsyncKeyState(VK_END)  & 0x8000) != 0;
 

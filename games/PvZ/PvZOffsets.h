@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 // ==============================
 // PvZOffsets — Plants vs Zombies 内存偏移常量
 // ==============================

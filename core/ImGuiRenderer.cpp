@@ -3,8 +3,22 @@
 #include "backends/imgui_impl_win32.h"
 #include "backends/imgui_impl_dx11.h"
 
+#include <cstdio>
+
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(
     HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+namespace {
+// 将字体文件名解析为 %WINDIR%\Fonts 下的完整路径；文件不存在时返回 false
+// Resolve a font file name to its full path under %WINDIR%\Fonts.
+bool ResolveSystemFontPath(const char* fileName, char* outPath, size_t outSize) {
+    char winDir[MAX_PATH];
+    const UINT len = ::GetWindowsDirectoryA(winDir, MAX_PATH);
+    if (len == 0 || len >= MAX_PATH) return false;
+    snprintf(outPath, outSize, "%s\\Fonts\\%s", winDir, fileName);
+    return ::GetFileAttributesA(outPath) != INVALID_FILE_ATTRIBUTES;
+}
+} // namespace
 
 namespace coco {
 
@@ -22,6 +36,8 @@ bool ImGuiRenderer::Initialize(HWND hwnd, D3D11Device& d3d) {
     ImGui::CreateContext();
     m_contextCreated = true;
     ImGuiIO& io = ImGui::GetIO();
+    // 覆盖层窗口不保存/加载布局，避免在运行目录生成 imgui.ini
+    io.IniFilename = nullptr;
 
     // Font stack mirrors docs/menu-framework-pvz.html:
     //   --font: 'Segoe UI','Microsoft YaHei',sans-serif; --mono: Consolas
@@ -40,54 +56,38 @@ bool ImGuiRenderer::Initialize(HWND hwnd, D3D11Device& d3d) {
         0,
     };
 
+    // 字体文件缺失时优雅降级：基础字体加载失败即返回 nullptr（回退到 ImGui 默认字体），
+    // 中文字体 / 符号字体缺失则跳过合并，UI 仍可运行。
+    char basePath[MAX_PATH];
+    char cjkPath[MAX_PATH];
+    char symbolPath[MAX_PATH];
+    const bool hasCjk    = ResolveSystemFontPath("msyh.ttc", cjkPath, MAX_PATH);
+    const bool hasSymbol = ResolveSystemFontPath("seguisym.ttf", symbolPath, MAX_PATH);
+
+    auto addFontStack = [&](const char* baseFile, float size,
+                            bool mergeCjk, bool mergeSymbol) -> ImFont* {
+        if (!ResolveSystemFontPath(baseFile, basePath, MAX_PATH))
+            return nullptr;
+        ImFont* font = io.Fonts->AddFontFromFileTTF(basePath, size, &cfg, ranges);
+        if (!font) return nullptr;
+        cfg.MergeMode = true;
+        if (mergeCjk && hasCjk)
+            io.Fonts->AddFontFromFileTTF(cjkPath, size, &cfg, ranges);
+        if (mergeSymbol && hasSymbol)
+            io.Fonts->AddFontFromFileTTF(symbolPath, size, &cfg, kSymbolRanges);
+        cfg.MergeMode = false;
+        return font;
+    };
+
     // Larger defaults keep Chinese text crisp and readable on a standard
     // Windows desktop window instead of the former full-screen overlay.
-    m_fontUi = io.Fonts->AddFontFromFileTTF(
-        "C:\\Windows\\Fonts\\segoeui.ttf", 17.0f, &cfg, ranges);
-    cfg.MergeMode = true;
-    io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\msyh.ttc", 17.0f, &cfg, ranges);
-    io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\seguisym.ttf", 17.0f, &cfg, kSymbolRanges);
-    cfg.MergeMode = false;
-
-    m_fontBody = io.Fonts->AddFontFromFileTTF(
-        "C:\\Windows\\Fonts\\segoeui.ttf", 16.0f, &cfg, ranges);
-    cfg.MergeMode = true;
-    io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\msyh.ttc", 16.0f, &cfg, ranges);
-    io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\seguisym.ttf", 16.0f, &cfg, kSymbolRanges);
-    cfg.MergeMode = false;
-
-    m_fontTiny = io.Fonts->AddFontFromFileTTF(
-        "C:\\Windows\\Fonts\\segoeui.ttf", 13.0f, &cfg, ranges);
-    cfg.MergeMode = true;
-    io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\msyh.ttc", 13.0f, &cfg, ranges);
-    io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\seguisym.ttf", 13.0f, &cfg, kSymbolRanges);
-    cfg.MergeMode = false;
-
-    m_fontMicro = io.Fonts->AddFontFromFileTTF(
-        "C:\\Windows\\Fonts\\segoeui.ttf", 13.0f, &cfg, ranges);
-    cfg.MergeMode = true;
-    io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\msyh.ttc", 13.0f, &cfg, ranges);
-    io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\seguisym.ttf", 13.0f, &cfg, kSymbolRanges);
-    cfg.MergeMode = false;
-
-    m_fontSmall = io.Fonts->AddFontFromFileTTF(
-        "C:\\Windows\\Fonts\\segoeui.ttf", 15.0f, &cfg, ranges);
-    cfg.MergeMode = true;
-    io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\msyh.ttc", 15.0f, &cfg, ranges);
-    io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\seguisym.ttf", 15.0f, &cfg, kSymbolRanges);
-    cfg.MergeMode = false;
-
-    m_fontMono = io.Fonts->AddFontFromFileTTF(
-        "C:\\Windows\\Fonts\\consola.ttf", 14.0f, &cfg, ranges);
-    cfg.MergeMode = true;
-    io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\msyh.ttc", 14.0f, &cfg, ranges);
-    cfg.MergeMode = false;
-
-    m_fontTitle = io.Fonts->AddFontFromFileTTF(
-        "C:\\Windows\\Fonts\\msyhbd.ttc", 18.0f, &cfg, ranges);
-    cfg.MergeMode = true;
-    io.Fonts->AddFontFromFileTTF("C:\\Windows\\Fonts\\seguisym.ttf", 18.0f, &cfg, kSymbolRanges);
-    cfg.MergeMode = false;
+    m_fontUi    = addFontStack("segoeui.ttf", 17.0f, true, true);
+    m_fontBody  = addFontStack("segoeui.ttf", 16.0f, true, true);
+    m_fontSmall = addFontStack("segoeui.ttf", 15.0f, true, true);
+    m_fontTiny  = addFontStack("segoeui.ttf", 13.0f, true, true);
+    m_fontMicro = addFontStack("segoeui.ttf", 11.0f, true, true);
+    m_fontMono  = addFontStack("consola.ttf", 14.0f, true, false);
+    m_fontTitle = addFontStack("msyhbd.ttc", 18.0f, false, true);
 
     ImGui::StyleColorsDark();
 

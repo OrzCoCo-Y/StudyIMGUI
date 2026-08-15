@@ -2,7 +2,7 @@
 
 A generic, extensible Windows game modifier overlay built with **Dear ImGui + DirectX 11**.
 
-Modular game-specific executables sharing a common core library.
+Modular game-specific executables sharing a common core library and a framework layer.
 6-tab universal menu: Visual / Assist / Numeric / Process / Settings / Developer.
 
 ## Project Structure
@@ -14,24 +14,30 @@ Modular game-specific executables sharing a common core library.
 │
 ├── core/                       # Shared core library (CoCoCore)
 │   ├── CMakeLists.txt
-│   ├── ImGuiManager.h/cpp      # ImGui render pipeline & UI
-│   └── MemoryManager.h/cpp     # Process memory operations
+│   ├── D3D11Device.h/cpp       # D3D11 device / swap chain / render target
+│   ├── ImGuiRenderer.h/cpp     # ImGui context, fonts & render pipeline
+│   ├── Process.h/cpp           # Target process find / open / liveness
+│   └── Memory.h/cpp            # Remote memory read/write & pointer chains
 │
-├── CoCoPvZ/                    # ★ Current: Plants vs Zombies modifier
+├── framework/                  # Shared application framework (CoCoFramework)
 │   ├── CMakeLists.txt
-│   └── main.cpp
+│   ├── GameFeature.h           # Feature plugin interface
+│   ├── OverlayApp.h/cpp        # Window, message loop, feature host
+│   └── LogBuffer.h/cpp         # Ring-buffer log
 │
-├── CoCoFPS/                    # Placeholder: FPS modifier
-│   ├── CMakeLists.txt
-│   └── main.cpp
+├── games/                      # Concrete game executables
+│   ├── PvZ/                    # ★ Current: Plants vs Zombies modifier
+│   │   ├── CMakeLists.txt
+│   │   ├── main.cpp
+│   │   ├── PvZFeature.h/cpp
+│   │   └── PvZOffsets.h
+│   ├── FPS/                    # Placeholder: FPS modifier template
+│   └── RPG/                    # Placeholder: RPG modifier template
 │
-├── CoCoRPG/                    # Placeholder: RPG modifier
-│   ├── CMakeLists.txt
-│   └── main.cpp
-│
-├── third_party/imgui/          # Dear ImGui (v1.91.6)
+├── third_party/imgui/          # Dear ImGui (v1.92.x)
 ├── docs/
-│   └── menu-framework.md       # 6-tab menu framework spec
+│   ├── menu-framework.md       # 6-tab menu framework spec
+│   └── menu-framework-pvz.html # PvZ UI design mockup
 ├── designs/                    # UI mockups (reserved)
 ├── cmake/                      # CMake helpers (reserved)
 └── scripts/                    # Build scripts (reserved)
@@ -56,9 +62,9 @@ Modular game-specific executables sharing a common core library.
 
 ## Adding a New Game
 
-1. Create `CoCoGameName/` with `CMakeLists.txt` and `main.cpp`
-2. Write game-specific feature logic using `core/` APIs
-3. Uncomment `add_subdirectory(CoCoGameName)` in root `CMakeLists.txt`
-4. Build — the new executable links CoCoCore automatically
+1. Create `games/GameName/` with `CMakeLists.txt`, `main.cpp`, and a `GameFeature` implementation
+2. Write game-specific feature logic using `core/` and `framework/` APIs
+3. Add `add_subdirectory(games/GameName)` in root `CMakeLists.txt`
+4. Build — the new executable links CoCoFramework (which links CoCoCore) automatically
 
 See `docs/menu-framework.md` for the menu structure.

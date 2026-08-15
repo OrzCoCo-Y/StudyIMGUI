@@ -34,16 +34,20 @@ uintptr_t Memory::ResolvePointerChain(
     if (baseAddress == 0) return 0;
 
     uintptr_t addr = baseAddress;
-    uint32_t  val  = 0;
+    // 按目标进程位宽读取指针：32 位进程读 4 字节，64 位进程读 8 字节
+    const size_t ptrSize = m_process->Is64Bit() ? sizeof(uint64_t)
+                                                : sizeof(uint32_t);
 
-    if (!Read(addr, val)) return 0;
+    uint64_t val = 0;
+    if (!ReadRaw(addr, &val, ptrSize)) return 0;
 
     for (size_t i = 0; i < offsets.size(); ++i) {
         addr = static_cast<uintptr_t>(val) + offsets[i];
         if (i == offsets.size() - 1) return addr;
-        if (!Read(addr, val) || val == 0) return 0;
+        val = 0;
+        if (!ReadRaw(addr, &val, ptrSize) || val == 0) return 0;
     }
-    return val;
+    return static_cast<uintptr_t>(val);
 }
 
 } // namespace coco

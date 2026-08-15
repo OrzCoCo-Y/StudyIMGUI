@@ -58,3 +58,8 @@ Makefile
 *.tmp
 *.cache
 *.d
+
+# ==============================
+# Runtime artifacts
+# ==============================
+imgui.ini

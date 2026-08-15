@@ -500,8 +500,14 @@ void PvZFeature::OnUpdate(Memory& mem) {
                                kCDSlot1Offset + kCDSlotStride * 2},
                               uint8_t(1));
 
-    if (m_autoCollectSunshine)
-        CollectSunshineRemote(mem);
+    // 自动采集：按 500ms 节流，避免每帧创建远程线程
+    if (m_autoCollectSunshine) {
+        const double now = ImGui::GetTime();
+        if (m_lastAutoCollect < 0.0 || now - m_lastAutoCollect >= 0.5) {
+            m_lastAutoCollect = now;
+            CollectSunshineRemote(mem);
+        }
+    }
 }
 
 // ==============================
@@ -550,9 +556,16 @@ bool PvZFeature::CollectSunshineRemote(Memory& mem) {
             (LPTHREAD_START_ROUTINE)kCollectSunshineFn,
             paramAddr, 0, nullptr);
         if (hThread) {
-            ::WaitForSingleObject(hThread, INFINITE);
+            // 有界等待，避免目标进程卡死时覆盖层 UI 永久冻结
+            const DWORD waitResult = ::WaitForSingleObject(hThread, 2000);
             ::CloseHandle(hThread);
-            ok = true;
+            if (waitResult == WAIT_OBJECT_0) {
+                ok = true;
+                // 仅在远程线程结束后释放参数内存，否则运行中的线程会读到已释放内存
+                ::VirtualFreeEx(hProcess, paramAddr, 0, MEM_RELEASE);
+            }
+            // 超时（线程仍在运行）时有意不释放 paramAddr，避免目标进程崩溃
+            return ok;
         }
     }
 
@@ -1003,6 +1016,7 @@ void PvZFeature::RenderNumericPane() {
                 m_sunshineDirty = true;
                 m_log.Add(LogLevel::Info, "目标阳光: %d", m_pendingSunshine);
             }
+            EndRow();
             ImGui::Spacing();
             static const char* kPlanned[] = { "金币", "钻石" };
             RowPlaceholders(kPlanned, 2);

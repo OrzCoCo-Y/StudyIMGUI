@@ -32,7 +32,7 @@ public:
     ImFont* FontBody()  const { return m_fontBody; }   // 16px body / navigation
     ImFont* FontSmall() const { return m_fontSmall; }  // 15px controls / descriptions
     ImFont* FontTiny()  const { return m_fontTiny; }   // 13px badges / status
-    ImFont* FontMicro() const { return m_fontMicro; }  // 13px compact labels
+    ImFont* FontMicro() const { return m_fontMicro; }  // 11px compact labels
     ImFont* FontMono()  const { return m_fontMono; }   // 14px PID / addresses
     ImFont* FontTitle() const { return m_fontTitle; }  // 18px pane title
 

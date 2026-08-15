@@ -6,6 +6,7 @@
 add_library(CoCoFramework STATIC
     OverlayApp.cpp
     LogBuffer.cpp
+    UiTheme.h
 )
 
 target_include_directories(CoCoFramework

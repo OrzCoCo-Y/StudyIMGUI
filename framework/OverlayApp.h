@@ -34,7 +34,10 @@ private:
     void DestroyOverlayWindow(HINSTANCE hInstance);
     bool PumpMessages(bool& shouldQuit);
     void PollHotkeys();
-    void DrawMenuBar();
+    void DrawTitleBar();
+    void DrawWindowControls(float stripHeight, float startX);
+    void ToggleMaximize();
+    void StartTitleBarDrag();
     void HandleUiRequests();
     bool AttachActiveFeature(bool notifyFailure);
 

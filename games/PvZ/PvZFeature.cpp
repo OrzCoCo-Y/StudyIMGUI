@@ -4,6 +4,7 @@
 #include "core/Memory.h"
 #include "core/Core.h"
 #include "core/ImGuiRenderer.h"
+#include "framework/UiTheme.h"
 
 #include "imgui.h"
 
@@ -18,39 +19,13 @@
 namespace coco {
 namespace {
 
-// ==============================
-// Palette — matches docs/menu-framework-pvz.html
-// 调色板 — 与设计稿一致
-// ==============================
-constexpr ImVec4 kWindowBg   (0.102f, 0.102f, 0.141f, 1.0f);  // #1a1a24
-constexpr ImVec4 kSurfaceBg  (0.133f, 0.133f, 0.180f, 1.0f);  // #22222e
-constexpr ImVec4 kHoverBg    (0.173f, 0.173f, 0.227f, 1.0f);  // #2c2c3a
-constexpr ImVec4 kActiveBg   (0.208f, 0.208f, 0.290f, 1.0f);  // #35354a
-constexpr ImVec4 kBorder     (0.255f, 0.263f, 0.345f, 1.0f);  // #414358
-constexpr ImVec4 kText       (0.910f, 0.918f, 0.965f, 1.0f);  // #e8eaf6
-constexpr ImVec4 kTextDim    (0.635f, 0.651f, 0.733f, 1.0f);  // #a2a6bb
-constexpr ImVec4 kTextBright (0.941f, 0.941f, 1.000f, 1.0f);  // #f0f0ff
-constexpr ImVec4 kAccent     (0.424f, 0.549f, 1.000f, 1.0f);  // #6c8cff
-constexpr ImVec4 kGreen      (0.435f, 0.812f, 0.592f, 1.0f);  // #6fcf97
-constexpr ImVec4 kRed        (0.922f, 0.341f, 0.341f, 1.0f);  // #eb5757
-constexpr ImVec4 kOrange     (0.949f, 0.600f, 0.290f, 1.0f);  // #f2994a
-
-const ImVec4 kAccentBg(kAccent.x, kAccent.y, kAccent.z, 0.10f);
-const ImVec4 kHoverAccent(kAccent.x, kAccent.y, kAccent.z, 0.18f);
-const ImVec4 kActiveAccent(kAccent.x, kAccent.y, kAccent.z, 0.24f);
-
-ImU32 ToU32(const ImVec4& color) {
-    return ImGui::ColorConvertFloat4ToU32(color);
-}
+// 调色板与标题栏布局常量见 framework/UiTheme.h（与设计稿 docs/menu-framework-pvz.html 一致）
 
 // ==============================
 // Font helpers — shared atlas from ImGuiRenderer
 // 字体辅助 — 与 ImGuiRenderer 共享字体图集
 // ==============================
 
-ImFont* UiFont() {
-    return ImGuiRenderer::Instance() ? ImGuiRenderer::Instance()->FontUi() : nullptr;
-}
 ImFont* BodyFont() {
     return ImGuiRenderer::Instance() ? ImGuiRenderer::Instance()->FontBody() : nullptr;
 }
@@ -74,7 +49,6 @@ ImFont* TitleFont() {
 void PushBodyFont()  { if (ImFont* f = BodyFont())  ImGui::PushFont(f, f->LegacySize); }
 void PushTinyFont()  { if (ImFont* f = TinyFont())  ImGui::PushFont(f, f->LegacySize); }
 void PushMicroFont() { if (ImFont* f = MicroFont()) ImGui::PushFont(f, f->LegacySize); }
-void PushUiFont()    { if (ImFont* f = UiFont())    ImGui::PushFont(f, f->LegacySize); }
 void PushSmallFont() { if (ImFont* f = SmallFont()) ImGui::PushFont(f, f->LegacySize); }
 void PushMonoFont()  { if (ImFont* f = MonoFont())  ImGui::PushFont(f, f->LegacySize); }
 void PushTitleFont() { if (ImFont* f = TitleFont()) ImGui::PushFont(f, f->LegacySize); }
@@ -597,11 +571,11 @@ void PvZFeature::OnRenderUI() {
     PushTheme();
     PushBodyFont();
 
-    // 窗口铺满主窗口客户区（菜单栏下方），随窗口缩放自适应
-    const float menuBarHeight = ImGui::GetFrameHeight();
+    // 窗口铺满主窗口客户区（自定义标题栏下方），随窗口缩放自适应
+    const float titleBarHeight = kTitleBarHeight;
     const ImVec2 display = ImGui::GetIO().DisplaySize;
-    ImGui::SetNextWindowPos(ImVec2(0.0f, menuBarHeight));
-    ImGui::SetNextWindowSize(ImVec2(display.x, display.y - menuBarHeight));
+    ImGui::SetNextWindowPos(ImVec2(0.0f, titleBarHeight));
+    ImGui::SetNextWindowSize(ImVec2(display.x, display.y - titleBarHeight));
 
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar |
                                    ImGuiWindowFlags_NoMove |
@@ -681,16 +655,8 @@ void PvZFeature::RenderHeader() {
     const float avail = ImGui::GetContentRegionAvail().x;
     ImDrawList* dl = ImGui::GetWindowDrawList();
 
-    // --- 左侧: ◈ CoCo v2.0 ---
-    PushUiFont();
-    ImGui::TextColored(kAccent, "◈");
-    ImGui::SameLine(0, 2.0f);
-    ImGui::TextColored(kTextBright, "CoCo");
-    ImGui::PopFont();
-    ImGui::SameLine(0, 6.0f);
-    PushTinyFont();
-    ImGui::TextColored(kTextDim, "v2.0");
-    ImGui::PopFont();
+    // 品牌 “◈ CoCo v2.0” 由框架自定义标题栏绘制（OverlayApp::DrawTitleBar），
+    // 本行仅保留右侧工具栏：游戏徽章 + 语言切换 + 连接状态。
 
     // --- 右侧: 游戏徽章 + 语言切换 + 连接状态 ---
     const char* statusText = m_attached ? "已附加" : "未附加";

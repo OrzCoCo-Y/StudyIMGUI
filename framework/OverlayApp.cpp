@@ -1,6 +1,7 @@
 #include "OverlayApp.h"
 #include "GameFeature.h"
 #include "LogBuffer.h"
+#include "UiTheme.h"
 
 #include "../core/D3D11Device.h"
 #include "../core/ImGuiRenderer.h"
@@ -10,8 +11,29 @@
 
 #include "imgui.h"
 #include <shellapi.h>
+#include <dwmapi.h>
+
+#pragma comment(lib, "dwmapi.lib")
 
 namespace coco {
+namespace {
+
+// 字体辅助 — 与 Feature 侧共享 ImGuiRenderer 字体图集
+ImFont* UiFont() {
+    return ImGuiRenderer::Instance() ? ImGuiRenderer::Instance()->FontUi() : nullptr;
+}
+ImFont* TinyFont() {
+    return ImGuiRenderer::Instance() ? ImGuiRenderer::Instance()->FontTiny() : nullptr;
+}
+ImFont* SmallFont() {
+    return ImGuiRenderer::Instance() ? ImGuiRenderer::Instance()->FontSmall() : nullptr;
+}
+
+void PushUiFont()    { if (ImFont* f = UiFont())    ImGui::PushFont(f, f->LegacySize); }
+void PushTinyFont()  { if (ImFont* f = TinyFont())  ImGui::PushFont(f, f->LegacySize); }
+void PushSmallFont() { if (ImFont* f = SmallFont()) ImGui::PushFont(f, f->LegacySize); }
+
+} // namespace
 
 // ==============================
 // 构造 / 析构
@@ -116,7 +138,7 @@ int OverlayApp::Run(HINSTANCE hInstance, int nCmdShow) {
 
         // 绘制 UI（如果窗口可见）
         if (m_windowVisible) {
-            DrawMenuBar();
+            DrawTitleBar();
             for (auto& f : m_features) f->OnRenderUI();
         }
 
@@ -135,13 +157,71 @@ int OverlayApp::Run(HINSTANCE hInstance, int nCmdShow) {
 }
 
 // ==============================
-// UI：菜单栏
+// UI：自定义标题栏（替代系统标题栏 + 原 ImGui 主菜单栏）
 // ==============================
 
-void OverlayApp::DrawMenuBar() {
-    if (!ImGui::BeginMainMenuBar()) return;
+void OverlayApp::DrawTitleBar() {
+    const ImVec2 display = ImGui::GetIO().DisplaySize;
+    const float barH = kTitleBarHeight;
 
-    if (ImGui::BeginMenu("CoCo")) {
+    ImGui::SetNextWindowPos(ImVec2(0, 0));
+    ImGui::SetNextWindowSize(ImVec2(display.x, barH));
+
+    PushUiFont();
+    const float padY = (barH - ImGui::GetTextLineHeight()) * 0.5f;  // 内容垂直居中
+    ImGui::PopFont();
+
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, kSurfaceBg);
+    ImGui::PushStyleColor(ImGuiCol_Text, kText);
+    ImGui::PushStyleColor(ImGuiCol_TextDisabled, kTextDim);
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, kHoverBg);
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, kActiveBg);
+    ImGui::PushStyleColor(ImGuiCol_PopupBg, kSurfaceBg);
+    ImGui::PushStyleColor(ImGuiCol_Border, kBorder);
+    ImGui::PushStyleColor(ImGuiCol_Header, kAccentBg);
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, kHoverAccent);
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive, kActiveAccent);
+    ImGui::PushStyleColor(ImGuiCol_Separator, kBorder);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, padY));
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 0));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_PopupRounding, 4.0f);
+
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar |
+        ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoSavedSettings |
+        ImGuiWindowFlags_NoBringToFrontOnFocus;
+    if (!ImGui::Begin("##CoCoTitleBar", nullptr, flags)) {
+        ImGui::End();
+        ImGui::PopStyleVar(6);
+        ImGui::PopStyleColor(12);
+        return;
+    }
+
+    // --- 品牌：◈ CoCo v2.0 ---
+    PushUiFont();
+    ImGui::TextColored(kAccent, "◈");
+    ImGui::SameLine(0, 2.0f);
+    ImGui::TextColored(kTextBright, "CoCo");
+    ImGui::PopFont();
+    ImGui::SameLine(0, 6.0f);
+    PushTinyFont();
+    ImGui::TextColored(kTextDim, "v2.0");
+    ImGui::PopFont();
+
+    // --- 功能菜单（保留原主菜单栏能力：切换 Feature / 退出） ---
+    ImGui::SameLine(0, 16.0f);
+    PushSmallFont();
+    if (ImGui::Button("功能 ▾")) ImGui::OpenPopup("##CoCoFeatureMenu");
+    ImGui::PopFont();
+    const ImVec2 menuMin = ImGui::GetItemRectMin();
+    const ImVec2 menuMax = ImGui::GetItemRectMax();
+
+    if (ImGui::BeginPopup("##CoCoFeatureMenu")) {
+        PushSmallFont();
         for (auto& f : m_features) {
             bool isActive = (f.get() == m_activeFeature);
             if (ImGui::MenuItem(f->GetName(), nullptr, &isActive)) {
@@ -160,25 +240,129 @@ void OverlayApp::DrawMenuBar() {
                 }
             }
         }
+        // 保留 Feature 自定义菜单扩展点（原主菜单栏中的 OnRenderMenuBar）
+        for (auto& f : m_features) f->OnRenderMenuBar();
         ImGui::Separator();
         if (ImGui::MenuItem("退出")) { ::PostQuitMessage(0); }
-        ImGui::EndMenu();
+        ImGui::PopFont();
+        ImGui::EndPopup();
     }
 
-    for (auto& f : m_features) f->OnRenderMenuBar();
+    // --- 右侧窗口控制按钮（最小化 / 最大化 / 关闭） ---
+    const float ctlTotal = kWinCtlCount * kWinCtlWidth +
+                           (kWinCtlCount - 1) * kWinCtlGap;
+    const float ctlStartX = display.x - ctlTotal;
+    DrawWindowControls(barH, ctlStartX);
 
-    // 状态栏
-    if (m_activeFeature) {
-        char buf[64];
-        snprintf(buf, sizeof(buf), "当前: %s", m_activeFeature->GetName());
-        ImGui::SameLine(ImGui::GetWindowWidth() - 220);
-        if (m_process->IsAttached())
-            ImGui::TextColored(ImVec4(0,1,0,1), "%s [已连接]", buf);
-        else
-            ImGui::TextColored(ImVec4(1,0,0,1), "%s [未连接]", buf);
+    // --- 拖动区域：标题栏空白处（品牌左侧 + 菜单按钮与窗口控制之间），按钮区域除外 ---
+    const bool overDrag =
+        (menuMin.x - 6.0f > 0.0f &&
+         ImGui::IsMouseHoveringRect(ImVec2(0, 0), ImVec2(menuMin.x - 6.0f, barH))) ||
+        (ctlStartX - 6.0f > menuMax.x + 6.0f &&
+         ImGui::IsMouseHoveringRect(ImVec2(menuMax.x + 6.0f, 0),
+                                    ImVec2(ctlStartX - 6.0f, barH)));
+    if (overDrag && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+        ToggleMaximize();
+    if (overDrag && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 5.0f))
+        StartTitleBarDrag();
+
+    // 标题栏底部 1px 分隔线
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    dl->AddLine(ImVec2(0, barH - 1), ImVec2(display.x, barH - 1),
+                ToU32(kBorder), 1.0f);
+
+    ImGui::End();
+    ImGui::PopStyleVar(6);
+    ImGui::PopStyleColor(12);
+}
+
+void OverlayApp::DrawWindowControls(float stripHeight, float startX) {
+    ImDrawList* dl = ImGui::GetWindowDrawList();
+    const ImVec2 winPos = ImGui::GetWindowPos();
+    const float w = kWinCtlWidth, gap = kWinCtlGap;
+
+    for (int i = 0; i < kWinCtlCount; ++i) {
+        // 注意：不能命名为 min/max（windows.h 宏）
+        const ImVec2 btnMin(startX + i * (w + gap), winPos.y);
+        const ImVec2 btnMax(btnMin.x + w, btnMin.y + stripHeight);
+        const bool hovered = ImGui::IsMouseHoveringRect(btnMin, btnMax);
+        const bool clicked = hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+        const bool isClose = (i == 2);
+
+        if (hovered)
+            dl->AddRectFilled(btnMin, btnMax, ToU32(isClose ? kRed : kHoverBg), 3.0f);
+
+        const ImU32 iconCol = hovered
+            ? ToU32(isClose ? ImVec4(1, 1, 1, 1) : kTextBright)
+            : ToU32(kTextDim);
+        const ImVec2 c((btnMin.x + btnMax.x) * 0.5f, (btnMin.y + btnMax.y) * 0.5f);
+
+        switch (i) {
+        case 0:  // 最小化 —
+            dl->AddLine(ImVec2(c.x - 5.5f, c.y), ImVec2(c.x + 5.5f, c.y),
+                        iconCol, 1.8f);
+            break;
+        case 1:  // 最大化 / 还原
+            if (::IsZoomed(m_hwnd)) {
+                dl->AddRect(ImVec2(c.x - 8.0f, c.y - 8.0f),
+                            ImVec2(c.x + 3.0f, c.y + 3.0f), iconCol, 1.0f, 0, 1.6f);
+                dl->AddRect(ImVec2(c.x - 3.0f, c.y - 3.0f),
+                            ImVec2(c.x + 8.0f, c.y + 8.0f), iconCol, 1.0f, 0, 1.6f);
+            } else {
+                dl->AddRect(ImVec2(c.x - 5.5f, c.y - 5.5f),
+                            ImVec2(c.x + 5.5f, c.y + 5.5f), iconCol, 1.0f, 0, 1.6f);
+            }
+            break;
+        case 2:  // 关闭 ✕
+            dl->AddLine(ImVec2(c.x - 5.0f, c.y - 5.0f), ImVec2(c.x + 5.0f, c.y + 5.0f),
+                        iconCol, 1.8f);
+            dl->AddLine(ImVec2(c.x - 5.0f, c.y + 5.0f), ImVec2(c.x + 5.0f, c.y - 5.0f),
+                        iconCol, 1.8f);
+            break;
+        }
+
+        if (clicked) {
+            switch (i) {
+            case 0: ::ShowWindow(m_hwnd, SW_MINIMIZE); break;
+            case 1: ToggleMaximize(); break;
+            case 2: ::PostQuitMessage(0); break;
+            }
+        }
     }
+}
 
-    ImGui::EndMainMenuBar();
+void OverlayApp::ToggleMaximize() {
+    if (::IsZoomed(m_hwnd))
+        ::ShowWindow(m_hwnd, SW_RESTORE);
+    else
+        ::ShowWindow(m_hwnd, SW_MAXIMIZE);
+}
+
+void OverlayApp::StartTitleBarDrag() {
+    // 借系统标题栏拖动循环：拖动移动、从最大化拖下还原跟随鼠标，与原生行为一致
+    ::ReleaseCapture();
+    ::SendMessage(m_hwnd, WM_NCLBUTTONDOWN, HTCAPTION, 0);
+
+    // 拖动结束后按释放位置执行贴边吸附：顶边最大化 / 左右半屏
+    POINT pt;
+    ::GetCursorPos(&pt);
+    HMONITOR mon = ::MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi{ sizeof(mi) };
+    if (!::GetMonitorInfo(mon, &mi)) return;
+    const RECT& wa = mi.rcWork;
+    const int margin = 2;
+    if (pt.y <= wa.top + margin) {
+        if (!::IsZoomed(m_hwnd)) ::ShowWindow(m_hwnd, SW_MAXIMIZE);
+        return;
+    }
+    const int halfW = (wa.right - wa.left) / 2;
+    if (pt.x <= wa.left + margin) {
+        ::SetWindowPos(m_hwnd, nullptr, wa.left, wa.top, halfW,
+                       wa.bottom - wa.top, SWP_NOZORDER | SWP_NOACTIVATE);
+    } else if (pt.x >= wa.right - margin) {
+        ::SetWindowPos(m_hwnd, nullptr, wa.right - halfW, wa.top, halfW,
+                       wa.bottom - wa.top, SWP_NOZORDER | SWP_NOACTIVATE);
+    }
 }
 
 // ==============================
@@ -256,11 +440,12 @@ bool OverlayApp::CreateOverlayWindow(HINSTANCE hInstance) {
 
     if (!::RegisterClassEx(&wc)) return false;
 
-    // 普通桌面窗口：带标题栏，可拖动 / 调整大小。
-    // 客户区初始 860x560，与 UI 布局一致 —— 窗口框即 UI 框。
+    // 无边框窗口：去掉系统标题栏（WS_CAPTION），保留可缩放边（WS_THICKFRAME）
+    // 与最小化/最大化能力；客户区即窗口本身，860x560 与 UI 布局完全一致。
+    // 标题栏由 ImGui 自绘（DrawTitleBar），缩小/最大化/关闭按钮与整体 UI 风格统一。
     RECT rc{ 0, 0, 860, 560 };
-    const DWORD winStyle = WS_OVERLAPPEDWINDOW;
-    ::AdjustWindowRectEx(&rc, winStyle, FALSE, 0);
+    const DWORD winStyle =
+        WS_POPUP | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU;
     const int winW = rc.right - rc.left;
     const int winH = rc.bottom - rc.top;
     const int screenW = ::GetSystemMetrics(SM_CXSCREEN);
@@ -279,6 +464,15 @@ bool OverlayApp::CreateOverlayWindow(HINSTANCE hInstance) {
         ::UnregisterClass(wc.lpszClassName, hInstance);
         return false;
     }
+
+    // Windows 11 圆角窗口（DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2）。
+    // 旧系统上该属性不可用，调用失败时保持直角，不影响功能。
+    const DWORD cornerPref = 2;
+    ::DwmSetWindowAttribute(m_hwnd, 33, &cornerPref, sizeof(cornerPref));
+
+    // 无边框窗口默认没有投影，向下扩展 1px 框架让 DWM 恢复窗口阴影
+    MARGINS shadowMargins{ 0, 0, 1, 0 };
+    ::DwmExtendFrameIntoClientArea(m_hwnd, &shadowMargins);
     return true;
 }
 
@@ -351,17 +545,49 @@ LRESULT OverlayApp::WndProc(HWND hWnd, UINT msg,
     if (m_imgui->ProcessMessage(&m)) return true;
 
     switch (msg) {
+        case WM_NCCALCSIZE:
+            // 无边框窗口：客户区铺满整个窗口（wParam=TRUE 表示要求计算客户区），
+            // 彻底消除系统绘制的白色 NC 边框；边缘缩放由 WM_NCHITTEST 手动提供。
+            if (wParam) return 0;
+            break;
+        case WM_NCHITTEST: {
+            // 无边框窗口：手动提供 8px 边缘/角落的缩放命中区，其余交给 DefWindowProc
+            // （标题栏拖动由 ImGui 侧 ReleaseCapture + WM_NCLBUTTONDOWN(HTCAPTION) 处理）
+            POINT pt{ static_cast<short>(LOWORD(lParam)),
+                      static_cast<short>(HIWORD(lParam)) };
+            RECT rc{};
+            ::GetWindowRect(hWnd, &rc);
+            const int border = 8;
+            const bool left   = pt.x <  rc.left   + border;
+            const bool right  = pt.x >= rc.right  - border;
+            const bool top    = pt.y <  rc.top    + border;
+            const bool bottom = pt.y >= rc.bottom - border;
+            if (top && left)     return HTTOPLEFT;
+            if (top && right)    return HTTOPRIGHT;
+            if (bottom && left)  return HTBOTTOMLEFT;
+            if (bottom && right) return HTBOTTOMRIGHT;
+            if (left)            return HTLEFT;
+            if (right)           return HTRIGHT;
+            if (top)             return HTTOP;
+            if (bottom)          return HTBOTTOM;
+            break;
+        }
         case WM_GETMINMAXINFO: {
-            // 与 UI 尺寸约束一致：客户区最小 700x460，最大 1200x900
+            // 无边框窗口：最大化 = 显示器工作区；尺寸约束与 UI 一致（客户区即窗口本身）
             MINMAXINFO* mmi = reinterpret_cast<MINMAXINFO*>(lParam);
-            RECT rc{ 0, 0, 700, 460 };
-            ::AdjustWindowRectEx(&rc, WS_OVERLAPPEDWINDOW, FALSE, 0);
-            mmi->ptMinTrackSize.x = rc.right - rc.left;
-            mmi->ptMinTrackSize.y = rc.bottom - rc.top;
-            rc = RECT{ 0, 0, 1200, 900 };
-            ::AdjustWindowRectEx(&rc, WS_OVERLAPPEDWINDOW, FALSE, 0);
-            mmi->ptMaxTrackSize.x = rc.right - rc.left;
-            mmi->ptMaxTrackSize.y = rc.bottom - rc.top;
+            RECT wa{};
+            if (HMONITOR mon = ::MonitorFromWindow(hWnd, MONITOR_DEFAULTTONEAREST)) {
+                MONITORINFO mi{ sizeof(mi) };
+                if (::GetMonitorInfo(mon, &mi)) wa = mi.rcWork;
+            }
+            mmi->ptMaxPosition.x = wa.left;
+            mmi->ptMaxPosition.y = wa.top;
+            mmi->ptMaxSize.x = wa.right - wa.left;
+            mmi->ptMaxSize.y = wa.bottom - wa.top;
+            mmi->ptMinTrackSize.x = 700;
+            mmi->ptMinTrackSize.y = 460;
+            mmi->ptMaxTrackSize.x = 1200;
+            mmi->ptMaxTrackSize.y = 900;
             return 0;
         }
         case WM_SIZE:

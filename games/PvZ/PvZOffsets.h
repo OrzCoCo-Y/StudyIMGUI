@@ -27,6 +27,10 @@ inline constexpr uint32_t   kCDSlot1Offset     = 0x70;
 
 // --- 函数地址 ---
 inline constexpr uintptr_t  kCollectSunshineFn = 0x004309D0;
+inline constexpr uintptr_t  kPlantFn           = 0x0040D120;  // 种植 Call
+
+// --- 种植 Call 固定参数 ---
+inline constexpr uint32_t   kPlantFlags        = 0xFFFFFFFF;
 
 } // namespace pvz
 } // namespace coco

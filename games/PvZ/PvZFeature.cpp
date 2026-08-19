@@ -1,5 +1,7 @@
 #include "PvZFeature.h"
 #include "PvZOffsets.h"
+#include "PlantCallCommon.h"
+#include "PlantCallA.h"
 
 #include "core/Memory.h"
 #include "core/Core.h"
@@ -102,7 +104,7 @@ struct GroupDef {
 
 constexpr GroupDef kGroups[6][4] = {
     { { "玩家", 0, 5 }, { "世界", 0, 4 }, { "武器", 0, 4 }, { "其他视觉", 0, 4 } },
-    { { "战斗", 3, 5 }, { "移动", 0, 4 }, { "自动化", 1, 3 }, { "无敌", 0, 3 } },
+    { { "战斗", 3, 5 }, { "移动", 0, 4 }, { "自动化", 5, 5 }, { "无敌", 0, 3 } },
     { { "属性", 0, 4 }, { "资源", 1, 3 }, { "进度", 0, 2 }, { "武器属性", 0, 4 } },
     { { "连接", 5, 5 }, { "信息", 3, 3 }, { "内存扫描", 0, 3 }, { nullptr, 0, 0 } },
     { { "快捷键", 2, 3 }, { "外观", 0, 4 }, { "通用", 0, 4 }, { nullptr, 0, 0 } },
@@ -127,7 +129,7 @@ const char* const kGroupIcons[6][4] = {
 
 const char* const kTabDescs[6] = {
     "游戏画面叠加绘制元素",
-    "开关型行为修改 — NoCD / 自动采集",
+    "开关型行为修改 — NoCD / 自动采集 / 种植 Call",
     "数值编辑器 — 阳光值修改",
     "进程连接管理 — 附加 / 分离 / 信息",
     "工具级偏好配置",
@@ -437,7 +439,73 @@ void PvZFeature::OnAttach(Memory& mem) {
 }
 
 void PvZFeature::OnDetach() {
+    ReleasePlantSessions();
     m_log.Add(LogLevel::Info, "PvZ: 已与进程断开");
+}
+
+void PvZFeature::ReleasePlantSessions() {
+    m_plantSessionB.Release();
+    m_plantClientDll.Detach();
+    m_dllInjected = false;
+}
+
+bool PvZFeature::TryPlant(Memory& mem, int scheme) {
+    PlantCallParams params;
+    params.col       = static_cast<uint32_t>(m_plantCol);
+    params.row       = static_cast<uint32_t>(m_plantRow);
+    params.plantType = static_cast<uint32_t>(m_plantType);
+
+    if (!FillPlantParams(mem, params)) {
+        m_log.Add(LogLevel::Warning, "种植失败: 无法解析 memMgr 指针");
+        return false;
+    }
+
+    m_log.Add(LogLevel::Info,
+              "种植请求 col=%d row=%d type=%d memMgr=0x%08X 方案=%d",
+              m_plantCol, m_plantRow, m_plantType, params.memMgr, scheme);
+
+    bool ok = false;
+    switch (scheme) {
+        case 1:
+            ok = PlantViaSchemeA(mem, params);
+            break;
+        case 2:
+            ok = m_plantSessionB.Plant(mem, params);
+            break;
+        case 3:
+            if (!m_dllInjected) {
+                if (!m_plantClientDll.Inject(
+                        mem.ProcessHandle(),
+                        PlantCallDllClient::DefaultDllPath())) {
+                    m_log.Add(LogLevel::Warning,
+                              "DLL 注入失败，请确认 CoCoPvZMod.dll 与 exe 同目录");
+                    return false;
+                }
+                m_dllInjected = true;
+                m_log.Add(LogLevel::Info, "CoCoPvZMod.dll 已注入");
+            }
+            ok = m_plantClientDll.Plant(
+                params.col, params.row, params.plantType);
+            break;
+        default:
+            return false;
+    }
+
+    m_log.Add(LogLevel::Info, "种植 %s (方案 %d)",
+              ok ? "成功" : "失败", scheme);
+    return ok;
+}
+
+void PvZFeature::ProcessPendingPlant(Memory& mem) {
+    if (m_pendingPlantScheme == 0) return;
+    if (!m_attached) {
+        m_log.Add(LogLevel::Warning, "种植失败: 尚未附加进程");
+        m_pendingPlantScheme = 0;
+        return;
+    }
+    const int scheme = m_pendingPlantScheme;
+    m_pendingPlantScheme = 0;
+    TryPlant(mem, scheme);
 }
 
 // ==============================
@@ -482,6 +550,8 @@ void PvZFeature::OnUpdate(Memory& mem) {
             CollectSunshineRemote(mem);
         }
     }
+
+    ProcessPendingPlant(mem);
 }
 
 // ==============================
@@ -598,7 +668,8 @@ void PvZFeature::OnRenderUI() {
     ImGui::BeginChild("##body", ImVec2(0, -30.0f));
     RenderSidebar();
     ImGui::SameLine();
-    ImGui::BeginChild("##pane", ImVec2(0, 0));
+    ImGui::BeginChild("##pane", ImVec2(0, 0), ImGuiChildFlags_Borders,
+                      ImGuiWindowFlags_AlwaysVerticalScrollbar);
     RenderPane();
     ImGui::EndChild();
     ImGui::EndChild();
@@ -937,8 +1008,57 @@ void PvZFeature::RenderAssistPane() {
             if (RowToggle("自动采集阳光", true, &m_autoCollectSunshine))
                 m_log.Add(LogLevel::Info, "自动采集 %s",
                           m_autoCollectSunshine ? "启用" : "禁用");
-            static const char* kPlanned[] = { "自动收集", "自动对话" };
-            RowPlaceholders(kPlanned, 2);
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+
+            PushSmallFont();
+            ImGui::TextColored(kAccent, "种植 Call");
+            ImGui::TextColored(kTextDim, "坐标与类型（与 CE 脚本一致）");
+            ImGui::PopFont();
+            ImGui::Spacing();
+
+            ImGui::SetNextItemWidth(160.0f);
+            ImGui::InputInt("列 (X)", &m_plantCol, 1, 1);
+            ImGui::SetNextItemWidth(160.0f);
+            ImGui::InputInt("行 (Y)", &m_plantRow, 1, 1);
+            ImGui::SetNextItemWidth(160.0f);
+            ImGui::InputInt("植物类型", &m_plantType, 1, 1);
+
+            ImGui::Spacing();
+
+            if (!m_attached) ImGui::BeginDisabled();
+
+            ImGui::PushStyleColor(ImGuiCol_Text, kAccent);
+            if (ImGui::Button("方案 A — 远程 Shellcode 种植", ImVec2(-1, 0)))
+                m_pendingPlantScheme = 1;
+            ImGui::PopStyleColor();
+
+            ImGui::PushStyleColor(ImGuiCol_Text, kGreen);
+            if (ImGui::Button("方案 B — 复用 Stub 种植", ImVec2(-1, 0)))
+                m_pendingPlantScheme = 2;
+            ImGui::PopStyleColor();
+
+            ImGui::PushStyleColor(ImGuiCol_Text, kOrange);
+            if (ImGui::Button(m_dllInjected ? "方案 C — DLL 注入 种植"
+                                            : "方案 C — 注入 DLL 并种植",
+                              ImVec2(-1, 0)))
+                m_pendingPlantScheme = 3;
+            ImGui::PopStyleColor();
+
+            if (!m_attached) {
+                ImGui::EndDisabled();
+                PushTinyFont();
+                ImGui::TextColored(kOrange, "请先附加进程后再种植");
+                ImGui::PopFont();
+            }
+
+            if (m_dllInjected) {
+                ImGui::TextColored(kGreen, "DLL: 已注入 CoCoPvZMod.dll");
+            } else {
+                ImGui::TextColored(kTextDim, "DLL: 未注入");
+            }
             break;
         }
         case 3: { // 无敌

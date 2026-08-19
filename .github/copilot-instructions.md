@@ -20,3 +20,7 @@ Modular structure: shared `core/` library + `framework/` layer + game-specific e
 - Implementation: matching .cpp with same section structure as header
 - Includes: own header first, then standard library, then project headers
 - Comments: bilingual (English line + Chinese line) for functional comments
+
+- @azure Rule - Use Azure Tools - When handling requests related to Azure, always use your tools.
+- @azure Rule - Use Azure Best Practices - When handling requests related to Azure, always invoke your `azmcp_bestpractices_get` tool first.
+- @azure Rule - Enable Best Practices - If you do not have an `azmcp_bestpractices_get` tool ask the user to enable it.

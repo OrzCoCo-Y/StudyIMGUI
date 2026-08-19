@@ -2,6 +2,8 @@
 
 #include "framework/GameFeature.h"
 #include "framework/LogBuffer.h"
+#include "PlantCallB.h"
+#include "PlantCallDll.h"
 #include <memory>
 
 namespace coco {
@@ -35,6 +37,9 @@ private:
     // --- 游戏逻辑 ---
     bool WriteSunshine(Memory& mem, int value);
     bool CollectSunshineRemote(Memory& mem);
+    bool TryPlant(Memory& mem, int scheme);  // 1=A 2=B 3=DLL
+    void ReleasePlantSessions();
+    void ProcessPendingPlant(Memory& mem);
 
     // --- UI 框架 ---
     void RenderHeader();
@@ -65,6 +70,16 @@ private:
     bool m_cdSlot3Enabled      = false;
     bool m_autoCollectSunshine = false;
     double m_lastAutoCollect   = -1.0;  // 上次自动采集时间（秒，用于节流）
+
+    // 种植 Call 参数（三种方案共用）
+    int  m_plantCol       = 0;
+    int  m_plantRow       = 3;
+    int  m_plantType      = 4;
+    bool m_dllInjected    = false;
+    int  m_pendingPlantScheme = 0;  // 0=无 1=A 2=B 3=DLL
+
+    PlantCallBSession  m_plantSessionB;
+    PlantCallDllClient m_plantClientDll;
 
     // 宿主桥接状态
     bool      m_attached = false;
